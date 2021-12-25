@@ -15,18 +15,19 @@ done < <(find ./Wallets -mindepth 1 -type d)
 
 
 
-# Fund the wallets
+# Fund the wallets (This part is slow but no real way around it)
 while read walletFile; do 
 walletAddr=`cat "$walletFile"`
 cat > ./FundWallet.exp <<EOL 
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
+spawn 
+ --testnet --wallet ./FundingWallet --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
 match_max 100000
 expect "*Wallet password: "
 send -- "\r"
 expect "*wallet*]:*"
-send -- "transfer $walletAddr .1\r"
+send -- "transfer $walletAddr .004\r"
 expect "*Is this okay?  (Y/Yes/N/No): *"
 send -- "y\r"
 expect "*wallet*]:*"
@@ -35,7 +36,7 @@ expect eof
 EOL
 
 chmod 777 ./FundWallet.exp && ./FundWallet.exp
-sleep 1260
+sleep 1500
 	
 done < <(find ./Wallets/ -type f -name "*.txt")
 
@@ -68,7 +69,7 @@ match_max 100000
 expect "*Wallet password: "
 send -- "\r"
 expect "*wallet*]:*"
-send -- "transfer $walletAddr .003\r"
+send -- "transfer $walletAddr .0001\r"
 expect "*Is this okay?  (Y/Yes/N/No): *"
 send -- "y\r"
 expect "*wallet*]:*"
