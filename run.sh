@@ -10,7 +10,8 @@ do
 	../MakeWallet2.exp
 	cd -
 	
-done < <(find ./Wallets -mindepth 1 -type d)
+done < <(find ./Wallets -mindepth 1 -type d | sort -u)
+
 
 
 
@@ -21,8 +22,7 @@ walletAddr=`cat "$walletFile"`
 cat > ./FundWallet.exp <<EOL 
 #!/usr/bin/expect -f
 set timeout -1
-spawn 
- --testnet --wallet ./FundingWallet --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
+spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
 match_max 100000
 expect "*Wallet password: "
 send -- "\r"
@@ -36,9 +36,10 @@ expect eof
 EOL
 
 chmod 777 ./FundWallet.exp && ./FundWallet.exp
+echo "Wallet $walletFile Funded!"
 sleep 1500
 	
-done < <(find ./Wallets/ -type f -name "*.txt")
+done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
 
 
 
@@ -79,7 +80,6 @@ EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to run the loop
 		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; sleep 1500;done'"
-	done < <(find ./ -type f -name "*.txt")
+	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd -
-done < <(find ./Wallets -mindepth 1 -type d) 
-
+done < <(find ./Wallets -mindepth 1 -type d | sort -u) 
