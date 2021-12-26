@@ -26,10 +26,19 @@ spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address test
 match_max 100000
 expect "*Wallet password: "
 send -- "\r"
+
 expect "*wallet*]:*"
 send -- "transfer $walletAddr .004\r"
-expect "*Is this okay?  (Y/Yes/N/No): *"
-send -- "y\r"
+
+expect {
+
+        "*Error: Not enough money in unlocked balance*\[wallet*" {send "transfer $walletAddr .004\r";exp_continue}
+                                
+        "*(out of sync)*" {send "refresh\r";exp_continue}
+	
+        "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r"}
+}
+
 expect "*wallet*]:*"
 send -- "exit\r"
 expect eof
