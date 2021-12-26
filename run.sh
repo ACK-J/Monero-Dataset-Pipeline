@@ -40,6 +40,8 @@ expect {
 }
 
 expect "*wallet*]:*"
+send -- "unspent_outputs\r"
+expect "*wallet*]:*"
 send -- "exit\r"
 expect eof
 EOL
