@@ -48,7 +48,7 @@ EOL
 
 chmod 777 ./FundWallet.exp && ./FundWallet.exp
 echo "Wallet $walletFile Funded!"
-sleep 1500
+sleep 600
 	
 done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
 
