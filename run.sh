@@ -1,4 +1,22 @@
 #!/bin/bash
+# This script will create pairs of wallets which will transact between eachother. Due to
+# monero's 20 minute lockout period, creating a large amount of simulated transactions is
+# difficult. This script automates the wallet creation, funding and will transact between
+# wallets infinitely. The only manual setup is to have a wallet with a large amount of testnet
+# coins within the root directory, and it must be named "FundingWallet". 
+
+# Usage: chmod +x run.sh && ./run.sh
+
+
+
+
+
+# Ask the user for a number of wallets to make
+read -p "About how many wallet pairs would you like (ex. 10)?" numwallets
+cd "./Wallets"
+# Create the directories which will store 2 wallets each
+for i in {1..$(($numwallets / 2))}; do mkdir $i; done
+cd -
 
 
 
@@ -97,7 +115,7 @@ send -- "exit\r"
 expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
-		#  Open a new terminal tab to run the loop
+		#  Open a new terminal tab to loop the transactions
 		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; sleep 1200;done'"
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd -
