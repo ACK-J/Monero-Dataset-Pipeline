@@ -2,7 +2,7 @@
 
 
 
-# Make 2 wallets per instance
+# Make 2 wallets per folder
 while read dir 
 do 
 	cd "$dir"
@@ -82,15 +82,23 @@ expect "*Wallet password: "
 send -- "\r"
 expect "*wallet*]:*"
 send -- "transfer $walletAddr .0001\r"
-expect "*Is this okay?  (Y/Yes/N/No): *"
-send -- "y\r"
+
+expect {
+
+        "*Error: Not enough money in unlocked balance*\[wallet*" {send "transfer $walletAddr .004\r";exp_continue}
+                                
+	"*(out of sync)*" {send "refresh\r";exp_continue}
+	
+        "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r"}
+}
+
 expect "*wallet*]:*"
 send -- "exit\r"
 expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to run the loop
-		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; sleep 1500;done'"
+		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; sleep 1200;done'"
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd -
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) 
