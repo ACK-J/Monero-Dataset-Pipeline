@@ -5,7 +5,7 @@
 # wallets infinitely. The only manual setup is to have a wallet with a large amount of testnet
 # coins within the root directory, and it must be named "FundingWallet". 
 
-# Usage: chmod +x run.sh && ./run.sh
+# Usage: chmod +x ./run.sh && ./run.sh
 
 
 
@@ -71,7 +71,7 @@ EOL
 
 chmod 777 ./FundWallet.exp && ./FundWallet.exp
 echo "Wallet $walletFile Funded!"
-sleep 600
+sleep 600 # Wait 10 minutes instead of 20
 	
 done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
 
@@ -128,5 +128,5 @@ EOL
 		#  Open a new terminal tab to loop the transactions
 		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; sleep 1200;done'"
 	done < <(find ./ -type f -name "*.txt" | sort -u)
-	cd -
+	cd - # Reset the directory
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) 
