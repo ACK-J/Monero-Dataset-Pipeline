@@ -33,6 +33,10 @@ send -- "set ask-password 0\r"
 expect "*Wallet password: "
 send -- "\r"
 
+
+expect "*wallet*]:*"
+send -- "set store-tx-info 1\r"
+
 expect "*wallet*]:*"
 send -- "exit\r"
 expect eof
