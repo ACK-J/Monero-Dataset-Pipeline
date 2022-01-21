@@ -101,20 +101,15 @@ send -- "transfer $walletAddr .0001\r"
 
 expect {
 
-        "*Error: Not enough money in unlocked balance*\[wallet*" {send "transfer $walletAddr .0001\r";exp_continue}
-        
-        "*Error: transaction cancelled*wallet*]:*" {send "transfer $walletAddr .0001\r";exp_continue}
+        "*Error: *\[wallet*" {send "transfer $walletAddr .0001\r";exp_continue}
                                 
         "*(out of sync)*" {send "refresh\r";exp_continue}
 	
         "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
         
-        "*Transaction successfully submitted*wallet*]:*" {send ""}
+        "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
         
 }
-
-expect "*wallet*]:*"
-send -- "exit\r"
 expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
