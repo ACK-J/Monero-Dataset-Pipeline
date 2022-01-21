@@ -6,6 +6,7 @@ A script which will automate the creation of monero wallets and send transaction
 
 # Installation
 ```
+sudo apt install jq
 git clone git@github.com:ACK-J/XMR-Transaction-Automation.git
 cd ~ && wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2
 tar -xvf monero-linux-x64-v0.17.3.0.tar.bz2 && cd monero-x86_64-linux-gnu-v0.17.3.0 && sudo cp monero* /usr/bin/
