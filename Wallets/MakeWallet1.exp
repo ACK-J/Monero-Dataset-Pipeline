@@ -22,14 +22,12 @@ expect "*Do you want to do it now? (Y/Yes/N/No):*"
 send -- "N\r"
 
 expect "*wallet*]:*"
-send -- "set inactivity-lock-timeout 0\r"
-
+send -- "set ask-password 0\r"
 expect "*Wallet password: "
 send -- "\r"
 
 expect "*wallet*]:*"
-send -- "set ask-password 0\r"
-
+send -- "set inactivity-lock-timeout 0\r"
 expect "*Wallet password: "
 send -- "\r"
 
