@@ -23,16 +23,18 @@ send -- "N\r"
 
 expect "*wallet*]:*"
 send -- "set ask-password 0\r"
-expect "*Wallet password: "
+expect "*Wallet password:*"
 send -- "\r"
 
 expect "*wallet*]:*"
 send -- "set inactivity-lock-timeout 0\r"
-expect "*Wallet password: "
+expect "*Wallet password:*"
 send -- "\r"
 
 expect "*wallet*]:*"
 send -- "set store-tx-info 1\r"
+expect "*Wallet password:*"
+send -- "\r"
 
 expect "*wallet*]:*"
 send -- "exit\r"
