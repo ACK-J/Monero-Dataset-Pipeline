@@ -97,7 +97,7 @@ match_max 100000
 expect "*Wallet password: "
 send -- "\r"
 expect "*wallet*]:*"
-send -- "transfer $walletAddr .0001\r"
+send -- "transfer $walletAddr .00000001\r"
 
 expect {
 
