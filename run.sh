@@ -97,13 +97,13 @@ match_max 100000
 expect "*Wallet password: "
 send -- "\r"
 expect "*wallet*]:*"
-send -- "transfer $walletAddr .0000000001\r"
+send -- "transfer $walletAddr .00000000001\r"
 
 expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {send "transfer $walletAddr .0000000001\r";exp_continue}
+        "*Error: *\[wallet*" {send "transfer $walletAddr .00000000001\r";exp_continue}
                                 
         "*(out of sync)*" {send "refresh\r";exp_continue}
 	
