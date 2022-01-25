@@ -63,7 +63,7 @@ expect eof
 EOL
 
 chmod 777 ./FundWallet.exp && ./FundWallet.exp
-echo "Wallet $walletFile Funded!"
+echo "Wallet $walletFile Funded!" && date
 sleep 600 # Wait 10 minutes instead of 20
 	
 done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
@@ -114,7 +114,7 @@ expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to loop the transactions
-		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; sleep 1200;done'"
+		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; date; sleep 1200;done'"
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - # Reset the directory
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) 
