@@ -46,13 +46,13 @@ expect "*Wallet password: "
 send -- "\r"
 
 expect "*wallet*]:*"
-send -- "transfer $walletAddr .004\r"
+send -- "transfer $walletAddr 1\r"
 
 expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {send "transfer $walletAddr .004\r";exp_continue}
+        "*Error: *\[wallet*" {send "transfer $walletAddr 1\r";exp_continue}
                                         
         "*(out of sync)*" {send "refresh\r";exp_continue}
 	
@@ -97,13 +97,13 @@ match_max 100000
 expect "*Wallet password: "
 send -- "\r"
 expect "*wallet*]:*"
-send -- "transfer $walletAddr .00000000001\r"
+send -- "transfer $walletAddr .000000000001\r"
 
 expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {send "transfer $walletAddr .00000000001\r";exp_continue}
+        "*Error: *\[wallet*" {send "transfer $walletAddr .000000000001\r";exp_continue}
                                 
         "*(out of sync)*" {send "refresh\r";exp_continue}
 	
@@ -114,7 +114,7 @@ expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to loop the transactions
-		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; date; sleep 1200;done'"
+		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; unspent_outputs; date; sleep 1200;done'"
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - # Reset the directory
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) 
