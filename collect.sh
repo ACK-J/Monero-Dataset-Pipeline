@@ -1,8 +1,11 @@
 #!/bin/bash
 
 # Requirements: jq
-# Before running this script first compile and run ./monerod --testnet --prune-blockchain       https://github.com/monero-project/monero#compiling-monero-from-source
-# Before running this script first compile xmr2csv from                                         https://github.com/moneroexamples/transactions-export
+# Before running this script first compile and run 
+#               "./monerod --testnet --prune-blockchain"       https://github.com/monero-project/monero#compiling-monero-from-source
+# Before running this script first run 
+#               "sudo monero-wallet-rpc --rpc-bind-port 28088 --wallet-file FundingWallet --password '' --testnet --disable-rpc-login"
+# Before running this script first compile xmr2csv from https://github.com/moneroexamples/transactions-export
 # Usage: ./collect.sh <starting block>
 s
 while read dir; do 
