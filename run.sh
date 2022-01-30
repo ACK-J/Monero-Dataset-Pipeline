@@ -46,13 +46,13 @@ expect "*Wallet password: "
 send -- "\r"
 
 expect "*wallet*]:*"
-send -- "transfer $walletAddr 1\r"
+send -- "transfer $walletAddr 0.95\r"
 
 expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {send "transfer $walletAddr 1\r";exp_continue}
+        "*Error: *\[wallet*" {send "transfer $walletAddr 0.95\r";exp_continue}
                                         
         "*(out of sync)*" {send "refresh\r";exp_continue}
 	
