@@ -16,3 +16,6 @@ chmod +x ./run.sh && sudo chmod 777 ./FundingWallet*
 # Make sure terminal and sleep value for funding is correct
 ./run.sh
 ```
+
+# Check how many terminal tabs are open
+`ps --ppid $(pgrep xfce4-terminal)  | wc -l`
