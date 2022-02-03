@@ -114,7 +114,8 @@ expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to loop the transactions
-		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; unspent_outputs; date; sleep 1200;done'"
+		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; date; sleep 1200;done'"
+		sleep 20
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - # Reset the directory
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) 
