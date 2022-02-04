@@ -52,9 +52,9 @@ expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {send "transfer $walletAddr 0.95\r";exp_continue}
+        "*Error: *\[wallet*" {sleep 1;send "transfer $walletAddr 0.95\r";exp_continue}
                                         
-        "*(out of sync)*" {send "refresh\r";exp_continue}
+        "*(out of sync)*" {sleep 1;send "refresh\r";exp_continue}
 	
         "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
               
@@ -91,21 +91,26 @@ while read dir ;do  # Loop each directory
 # Write an expect script
 cat > ./$walletName-spend.exp <<EOL 
 #!/usr/bin/expect -f
+if {[llength \$argv] == 0} {
+  puts stderr "Usage: Pass an amount as an argument!"
+  exit 1
+}
 set timeout -1
+set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
 match_max 100000
 expect "*Wallet password: "
 send -- "\r"
 expect "*wallet*]:*"
-send -- "transfer $walletAddr .000000000001\r"
+send -- "transfer $walletAddr \$amount\r"
 
 expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {send "transfer $walletAddr .000000000001\r";exp_continue}
+        "*Error: *\[wallet*" {sleep 15;send "transfer $walletAddr \$amount\r";exp_continue}
                                 
-        "*(out of sync)*" {send "refresh\r";exp_continue}
+        "*(out of sync)*" {sleep 1;send "refresh\r";exp_continue}
 	
         "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
         
@@ -114,8 +119,8 @@ expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to loop the transactions
-		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; date; sleep 1200;done'"
-		sleep 20
+		gnome-terminal --tab -x bash -c "while : ;do rand_tx=$(python3 -c 'import random;sci=random.uniform(0.0001, 0.000000000001);print(format(sci, ".12f"))'); ./$walletName-spend.exp \$rand_tx; date; sleep 1200;done"
+		sleep 30
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - # Reset the directory
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) 
