@@ -52,7 +52,7 @@ expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {send "transfer $walletAddr 0.95\r";exp_continue}
+        "*Error: *\[wallet*" {sleep 10;send "transfer $walletAddr 0.95\r";exp_continue}
                                         
         "*(out of sync)*" {send "refresh\r";exp_continue}
 	
@@ -103,7 +103,7 @@ expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {send "transfer $walletAddr .000000000001\r";exp_continue}
+        "*Error: *\[wallet*" {sleep 10;send "transfer $walletAddr .000000000001\r";exp_continue}
                                 
         "*(out of sync)*" {send "refresh\r";exp_continue}
 	
