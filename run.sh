@@ -92,18 +92,19 @@ while read dir ;do  # Loop each directory
 cat > ./$walletName-spend.exp <<EOL 
 #!/usr/bin/expect -f
 set timeout -1
+set amount [lindex $argv 0];   # 0.0001 -> .000000000001
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
 match_max 100000
 expect "*Wallet password: "
 send -- "\r"
 expect "*wallet*]:*"
-send -- "transfer $walletAddr .000000000001\r"
+send -- "transfer $walletAddr $amount\r"
 
 expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {sleep 10;send "transfer $walletAddr .000000000001\r";exp_continue}
+        "*Error: *\[wallet*" {sleep 15;send "transfer $walletAddr $amount\r";exp_continue}
                                 
         "*(out of sync)*" {sleep 1;send "refresh\r";exp_continue}
 	
@@ -114,8 +115,8 @@ expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to loop the transactions
-		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp; date; sleep 1200;done'"
-		sleep 20
+		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp $(python3 -c "import random;print(random.uniform(0.0001, 0.000000000001))"); date; sleep 1200;done'"
+		sleep 30
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - # Reset the directory
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) 
