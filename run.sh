@@ -115,7 +115,7 @@ expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to loop the transactions
-		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp $(python3 -c "import random;print(random.uniform(0.0001, 0.000000000001))"); date; sleep 1200;done'"
+		gnome-terminal --tab --command="bash -c 'while : ;do ./$walletName-spend.exp $(python3 -c 'import random;sci=random.uniform(0.0001, 0.000000000001);print(f"{sci:.12f}")'); date; sleep 1200;done'"
 		sleep 30
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - # Reset the directory
