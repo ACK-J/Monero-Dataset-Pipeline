@@ -91,6 +91,10 @@ while read dir ;do  # Loop each directory
 # Write an expect script
 cat > ./$walletName-spend.exp <<EOL 
 #!/usr/bin/expect -f
+if {[llength $argv] == 0} {
+  puts stderr "Usage: Pass an amount as an argument!"
+  exit 1
+}
 set timeout -1
 set amount [lindex $argv 0];   # 0.0001 -> .000000000001
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
