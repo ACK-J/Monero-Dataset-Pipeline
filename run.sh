@@ -91,24 +91,24 @@ while read dir ;do  # Loop each directory
 # Write an expect script
 cat > ./$walletName-spend.exp <<EOL 
 #!/usr/bin/expect -f
-if {[llength $argv] == 0} {
+if {[llength \$argv] == 0} {
   puts stderr "Usage: Pass an amount as an argument!"
   exit 1
 }
 set timeout -1
-set amount [lindex $argv 0];   # 0.0001 -> .000000000001
+set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
 match_max 100000
 expect "*Wallet password: "
 send -- "\r"
 expect "*wallet*]:*"
-send -- "transfer $walletAddr $amount\r"
+send -- "transfer $walletAddr \$amount\r"
 
 expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {sleep 15;send "transfer $walletAddr $amount\r";exp_continue}
+        "*Error: *\[wallet*" {sleep 15;send "transfer $walletAddr \$amount\r";exp_continue}
                                 
         "*(out of sync)*" {sleep 1;send "refresh\r";exp_continue}
 	
