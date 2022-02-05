@@ -51,11 +51,11 @@ send -- "transfer $walletAddr 0.35\r"
 expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
+	
+        "*(out of sync)*" {send "refresh\r";exp_continue}
 
         "*Error: *\[wallet*" {sleep 1;send "transfer $walletAddr 0.35\r";exp_continue}
                                         
-        "*(out of sync)*" {send "refresh\r";exp_continue}
-	
         "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
 	
 	timeout {send "transfer $walletAddr \$amount\r";exp_continue} 
@@ -109,11 +109,11 @@ send -- "transfer $walletAddr \$amount\r"
 expect {
 
         "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
+	
+        "*(out of sync)*" {send "refresh\r";exp_continue}
 
         "*Error: *\[wallet*" {sleep 15;send "transfer $walletAddr \$amount\r";exp_continue}
-                                
-        "*(out of sync)*" {send "refresh\r";exp_continue}
-	
+                               
         "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
 	
 	timeout {send "transfer $walletAddr \$amount\r";exp_continue}
