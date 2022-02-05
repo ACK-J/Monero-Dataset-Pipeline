@@ -12,7 +12,7 @@
 
 
 # Ask the user for a number of wallets to make
-read -p "About how many wallet pairs would you like (ex. 10)?" numwallets
+read -p "About how many wallet pairs would you like (ex. 10)? " numwallets
 cd "./Wallets"
 # Create the directories which will store 2 wallets each
 for i in `seq $(($numwallets / 2))`; do mkdir $i; done
