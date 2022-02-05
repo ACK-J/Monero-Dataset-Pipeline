@@ -13,6 +13,8 @@ cd ~ && wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.
 tar -xvf monero-linux-x64-v0.17.3.0.tar.bz2 && cd monero-x86_64-linux-gnu-v0.17.3.0 && sudo cp monero* /usr/bin/ && cd ..
 git clone git@github.com:ACK-J/XMR-Transaction-Automation.git && cd XMR-Transaction-Automation
 chmod +x ./run.sh && sudo chmod 777 ./FundingWallet*
+monero-wallet-cli --testnet --wallet FundingWallet --daemon-address testnet.xmr-tw.org:28081 --trusted-daemon
+rescan_bc soft
 # Make sure terminal and sleep value for funding is correct
 ./run.sh
 ```
