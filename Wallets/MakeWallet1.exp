@@ -12,7 +12,7 @@ if {$force_conservative} {
 }
 
 set timeout -1
-spawn monero-wallet-cli --testnet --generate-new-wallet Test-Wallet1 --create-address-file --password "" --log-file /dev/null
+spawn monero-wallet-cli --testnet --generate-new-wallet Test-Wallet1 --create-address-file --password "" --log-file /dev/null --trusted-daemon
 match_max 100000
 
 expect "*language of your choice*"
