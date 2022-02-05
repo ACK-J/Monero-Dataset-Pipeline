@@ -46,7 +46,7 @@ expect "*Wallet password: "
 send -- "\r"
 
 expect "*wallet*]:*"
-send -- "transfer $walletAddr 0.95\r"
+send -- "transfer $walletAddr 0.35\r"
 
 expect {
 
