@@ -39,7 +39,7 @@ while read walletFile; do
 walletAddr=`cat "$walletFile"`
 cat > ./FundWallet.exp <<EOL 
 #!/usr/bin/expect -f
-set timeout 1800  # Timeout 30 mins
+set timeout 1800 
 spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "*Wallet password: "
@@ -58,7 +58,7 @@ expect {
 	
         "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
 	
-	timeout {send "transfer $walletAddr \$amount\r";exp_continue}  #  If the script hangs for 30 mins it will send a transfer
+	timeout {send "transfer $walletAddr \$amount\r";exp_continue} 
               
 }
 expect eof
@@ -97,7 +97,7 @@ if {[llength \$argv] == 0} {
   puts stderr "Usage: Pass an amount as an argument!"
   exit 1
 }
-set timeout 1800  # Timeout 30 mins
+set timeout 1800
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
@@ -116,7 +116,7 @@ expect {
 	
         "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue
 	
-	timeout {send "transfer $walletAddr \$amount\r";exp_continue}  #  If the script hangs for 30 mins it will send a transfer
+	timeout {send "transfer $walletAddr \$amount\r";exp_continue}
         
 }
 expect eof
