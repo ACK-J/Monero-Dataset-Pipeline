@@ -40,7 +40,7 @@ walletAddr=`cat "$walletFile"`
 cat > ./FundWallet.exp <<EOL 
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
+spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "*Wallet password: "
 send -- "\r"
@@ -97,7 +97,7 @@ if {[llength \$argv] == 0} {
 }
 set timeout -1
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
-spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null
+spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "*Wallet password: "
 send -- "\r"
