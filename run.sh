@@ -39,7 +39,7 @@ while read walletFile; do
 walletAddr=`cat "$walletFile"`
 cat > ./FundWallet.exp <<EOL 
 #!/usr/bin/expect -f
-set timeout -1
+set timeout 1800  # Timeout 30 mins
 spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "*Wallet password: "
@@ -57,6 +57,8 @@ expect {
         "*(out of sync)*" {send "refresh\r";exp_continue}
 	
         "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
+	
+	timeout {send "transfer $walletAddr \$amount\r";exp_continue}  #  If the script hangs for 30 mins it will send a transfer
               
 }
 expect eof
@@ -95,7 +97,7 @@ if {[llength \$argv] == 0} {
   puts stderr "Usage: Pass an amount as an argument!"
   exit 1
 }
-set timeout -1
+set timeout 1800  # Timeout 30 mins
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.xmr-tw.org:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
@@ -112,15 +114,17 @@ expect {
                                 
         "*(out of sync)*" {send "refresh\r";exp_continue}
 	
-        "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
+        "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue
+	
+	timeout {send "transfer $walletAddr \$amount\r";exp_continue}  #  If the script hangs for 30 mins it will send a transfer
         
 }
 expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to loop the transactions
-		gnome-terminal --tab -x bash -c "while : ;do rand_tx=$(python3 -c 'import random;sci=random.uniform(0.0001, 0.000000000001);print(format(sci, ".12f"))'); ./$walletName-spend.exp \$rand_tx; date; sleep 1200;done"
-		sleep 30
+		xfce4-terminal --tab -x bash -c "while : ;do rand_tx=$(python3 -c 'import random;sci=random.uniform(0.0001, 0.000000000001);print(format(sci, ".12f"))'); ./$walletName-spend.exp \$rand_tx; date; sleep 1200;done"
+		sleep 60
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - # Reset the directory
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) 
