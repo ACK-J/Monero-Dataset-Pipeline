@@ -21,3 +21,9 @@ rescan_bc soft
 
 # Check how many terminal tabs are open
 `ps --ppid $(pgrep xfce4-terminal)  | wc -l`
+
+# Testnet Nodes
+```
+testnet.xmr-tw.org:28081
+testnet.melo.tools:28081
+```
