@@ -50,7 +50,7 @@ send -- "transfer $walletAddr 0.35\r"
 
 expect {
 
-        "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
+        "Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
         "Error: *\[wallet*" {sleep 1;send "transfer $walletAddr 0.35\r";exp_continue}
 	
@@ -108,7 +108,7 @@ send -- "transfer $walletAddr \$amount\r"
 
 expect {
 
-        "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
+        "Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 	
         "Error: *\[wallet*" {sleep 15;send "transfer $walletAddr \$amount\r";exp_continue}
 	
