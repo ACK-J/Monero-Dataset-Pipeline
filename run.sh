@@ -97,7 +97,7 @@ if {[llength \$argv] == 0} {
   puts stderr "Usage: Pass an amount as an argument!"
   exit 1
 }
-set timeout 1800
+set timeout 60
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
