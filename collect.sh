@@ -15,12 +15,28 @@ while read dir; do
 	    #  Gets the address of the curent wallet
 	    walletAddr=`cat "$walletAddrFile"`
 	    
+	    echo "Killing monero-Wallet-RPC processes..."
+	    killall monero-wallet-rpc
+	    
+	    echo "Starting a new monero-wallet-rpc process..."
 	    #  Start a RPC server for the current wallet
             nohup monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
-            sleep 30  # Give the RPC server time to spin up
             
-            #  Connect to the RPC server and get the view & spend key
+            echo "Waiting..."
+            sleep 60  # Give the RPC server time to spin up
+            
             view_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
+            
+            # Wait until the rpc server is giving a response
+            while [ "$view_key" == "" ]; do
+               echo "Monero-Wallet-RPC server failed to start, retrying..."
+               killall monero-wallet-rpc
+               nohup monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
+            	sleep 60  # Give the RPC server time to spin up
+            	#  Connect to the RPC server and get the view & spend key
+            	view_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
+            done	
+            
             spend_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
             
             # Get all in and out transactions
@@ -51,7 +67,46 @@ while read dir; do
             		fi
             				
             fi
+            
+cat > ./Export_Wallet.exp <<EOL 
+#!/usr/bin/expect -f
+set timeout 60 
+spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
+match_max 100000
+expect "*Wallet password: "
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "export_transfers all output=cli-export-$walletAddrFile.csv\r"
+
+expect "wallet*]:*"
+send -- "exit\r"
+
+expect eof
+EOL
+chmod 777 ./Export_Wallet.exp && ./Export_Wallet.exp
+echo "Wallet $walletAddrFile Exported!" && date
 	    
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd -
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 done < <(find ./Wallets -mindepth 1 -type d | sort -u)
