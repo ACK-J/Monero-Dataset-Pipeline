@@ -17,7 +17,6 @@ while read dir; do
 	    
 	    #  Start a RPC server for the current wallet
             nohup monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
-	    pid=$!
             sleep 30  # Give the RPC server time to spin up
             
             #  Connect to the RPC server and get the view & spend key
