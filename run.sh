@@ -39,7 +39,7 @@ while read walletFile; do
 walletAddr=`cat "$walletFile"`
 cat > ./FundWallet.exp <<EOL 
 #!/usr/bin/expect -f
-set timeout 1800 
+set timeout 60 
 spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "*Wallet password: "
@@ -50,13 +50,13 @@ send -- "transfer $walletAddr 0.35\r"
 
 expect {
 
-        "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
+        "Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "*Error: *\[wallet*" {sleep 1;send "transfer $walletAddr 0.35\r";exp_continue}
+        "Error: *\[wallet*" {sleep 1;send "transfer $walletAddr 0.35\r";exp_continue}
 	
-        "*\[wallet*(out of sync)]:*" {send "refresh\r";exp_continue}
-                                        
-        "*Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
+        "(out of sync)]: *" {send "refresh\r";exp_continue}
+                               
+        "Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
 	
 	timeout {send "transfer $walletAddr \$amount\r";exp_continue} 
               
@@ -97,7 +97,7 @@ if {[llength \$argv] == 0} {
   puts stderr "Usage: Pass an amount as an argument!"
   exit 1
 }
-set timeout 1800
+set timeout 60
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
@@ -108,9 +108,9 @@ send -- "transfer $walletAddr \$amount\r"
 
 expect {
 
-        "*Transaction successfully submitted*wallet*]:*" {send "exit\r"}
+        "Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 	
-        "*Error: *\[wallet*" {sleep 15;send "transfer $walletAddr \$amount\r";exp_continue}
+        "Error: *\[wallet*" {sleep 15;send "transfer $walletAddr \$amount\r";exp_continue}
 	
         "(out of sync)]: *" {send "refresh\r";exp_continue}
                                
