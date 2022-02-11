@@ -5,8 +5,9 @@ shape=19.28
 rate=1.61
 #  Sleep a random value chosen at random from a gamma dist + 1200 seconds for the 20 min lockout
 sample=int(exp(np.random.gamma(shape, 1.0/rate, 1))) + 1200
-print("Sleep for ", sample)
-if sample > 43200:  # 12 hours
+if sample > 43200:
+	print("Sleep for ", 43200)
 	sleep(43200)
 else:
+	print("Sleep for ", sample)
 	sleep(sample)
