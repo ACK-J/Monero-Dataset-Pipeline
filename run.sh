@@ -39,9 +39,9 @@ while read walletFile; do
 walletAddr=`cat "$walletFile"`
 cat > ./FundWallet.exp <<EOL 
 #!/usr/bin/expect -f
-set timeout 60 
+set timeout -1 
 spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
-match_max 100000
+match_max 10000
 expect "Wallet password: "
 send -- "\r"
 
@@ -97,10 +97,10 @@ if {[llength \$argv] == 0} {
   puts stderr "Usage: Pass an amount as an argument!"
   exit 1
 }
-set timeout 60
+set timeout 90
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
-match_max 100000
+match_max 10000
 expect "Wallet password: "
 send -- "\r"
 expect "wallet*]:*"
@@ -123,7 +123,7 @@ expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to loop the transactions
-		xfce4-terminal --tab -x bash -c "while : ;do rand_tx=$(python3 -c 'import random;sci=random.uniform(0.01, 0.000000000001);print(format(sci, ".12f"))'); ./$walletName-spend.exp \$rand_tx; date; sleep 1200;done"
+		xfce4-terminal --tab -x bash -c "while : ;do rand_tx=$(python3 -c 'import random;sci=random.uniform(0.01, 0.000000000001);print(format(sci, ".12f"))'); ./$walletName-spend.exp \$rand_tx; date; python3 ../../Gamma.py;done"
 		sleep 60
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - # Reset the directory
