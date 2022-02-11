@@ -20,7 +20,7 @@ while read dir; do
 	    
 	    echo "Starting a new monero-wallet-rpc process..."
 	    #  Start a RPC server for the current wallet
-            nohup monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
+            monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
             
             echo "Waiting..."
             sleep 60  # Give the RPC server time to spin up
@@ -31,7 +31,7 @@ while read dir; do
             while [ "$view_key" == "" ]; do
                echo "Monero-Wallet-RPC server failed to start, retrying..."
                killall monero-wallet-rpc
-               nohup monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
+               monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
             	sleep 60  # Give the RPC server time to spin up
             	#  Connect to the RPC server and get the view & spend key
             	view_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
@@ -77,7 +77,7 @@ expect "*Wallet password: "
 send -- "\r"
 
 expect "wallet*]:*"
-send -- "export_transfers all output=cli-export-$walletAddrFile.csv\r"
+send -- "export_transfers all output=cli-export-$walletAddr.csv\r"
 
 expect "wallet*]:*"
 send -- "exit\r"
@@ -85,28 +85,9 @@ send -- "exit\r"
 expect eof
 EOL
 chmod 777 ./Export_Wallet.exp && ./Export_Wallet.exp
-echo "Wallet $walletAddrFile Exported!" && date
+echo "Wallet $walletAddr Exported!" && date
 	    
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd -
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+	#python3 process_exported.py
 done < <(find ./Wallets -mindepth 1 -type d | sort -u)
