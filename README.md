@@ -8,7 +8,7 @@ If you are not using the gnome desktop environment you will have to change [this
 - Add machine sshkey to github
 ```
 sudo apt update
-sudo apt install jq expect -y
+sudo apt install jq expect python3 -y
 cd ~ && wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2
 tar -xvf monero-linux-x64-v0.17.3.0.tar.bz2 && cd monero-x86_64-linux-gnu-v0.17.3.0 && sudo cp monero* /usr/bin/ && cd ..
 git clone git@github.com:ACK-J/XMR-Transaction-Automation.git && cd XMR-Transaction-Automation
