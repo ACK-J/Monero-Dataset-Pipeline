@@ -123,7 +123,7 @@ expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
 		#  Open a new terminal tab to loop the transactions
-		xfce4-terminal --tab -x bash -c "i=1; while : ;do ./$walletName-spend.exp $(python3 -c 'import random;sci=random.uniform(0.01, 0.000000000001);print(format(sci, ".12f"))'); date; echo -e '\033[34m Number of successful transactions: $i \033[0m'; i=$((i+1)); python3 ../../Gamma.py;done"
+		xfce4-terminal --tab -x bash -c "i=1; while : ;do ./$walletName-spend.exp $(python3 -c 'import random;sci=random.uniform(0.01, 0.000000000001);print(format(sci, ".12f"))'); date; echo -e '\033[34m Number of successful transactions:\033[0m' $i; ((i++)); python3 ../../Gamma.py;done"
 		sleep 60
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - # Reset the directory
