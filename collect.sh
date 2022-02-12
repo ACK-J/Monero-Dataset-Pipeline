@@ -16,7 +16,7 @@ while read dir; do
 	    walletAddr=`cat "$walletAddrFile"`
 	    
 	    echo "Killing monero-Wallet-RPC processes..."
-	    killall monero-wallet-rpc
+	    ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
 	    
 	    echo "Starting a new monero-wallet-rpc process..."
 	    #  Start a RPC server for the current wallet
@@ -30,7 +30,7 @@ while read dir; do
             # Wait until the rpc server is giving a response
             while [ "$view_key" == "" ]; do
                echo "Monero-Wallet-RPC server failed to start, retrying..."
-               killall monero-wallet-rpc
+               ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
                monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
             	sleep 60  # Give the RPC server time to spin up
             	#  Connect to the RPC server and get the view & spend key
@@ -46,7 +46,7 @@ while read dir; do
 	    starting_block_in=`curl http://127.0.0.1:28088/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"in":true,"out":true}}' -H 'Content-Type: application/json' -s | jq '.result.in[0].height'`
 	    
 	    # Kill the wallet rpc wallet
-            killall monero-wallet-rpc
+            ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
             
             if [ "null" == "$starting_block_out" ] && [ "null" == "$starting_block_in" ]; then 
             		# Both wallets return null for block height
