@@ -93,12 +93,13 @@ while read dir ;do  # Loop each directory
 # Write an expect script
 cat > ./$walletName-spend.exp <<EOL 
 #!/usr/bin/expect -f
-if {[llength \$argv] == 0} {
-  puts stderr "Usage: Pass an amount as an argument!"
+if {[llength \$argv] != 2} {
+  puts stderr "Usage: Pass an amount and a priority as arguments!"
   exit 1
 }
 set timeout 90
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
+set priority [lindex \$argv 1];   # 0 -> 4
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
