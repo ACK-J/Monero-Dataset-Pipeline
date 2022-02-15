@@ -73,7 +73,7 @@ cat > ./Export_Wallet.exp <<EOL
 set timeout 60 
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
-expect "*Wallet password: "
+expect "Wallet password: "
 send -- "\r"
 
 expect "wallet*]:*"
