@@ -54,16 +54,16 @@ while read dir; do
             else # At least one is not null
             		# if neither are null and out < in
             		if  [ ! "null" == "$starting_block_out" ] && [ ! "null" == "$starting_block_in" ] && [ $starting_block_out -le $starting_block_in ]; then
-            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key  --testnet --start-height $starting_block_out --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv
+            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key  --testnet --start-height $starting_block_out --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
             		# if neither are null and in < out	
             		elif [ ! "null" == "$starting_block_out" ] && [ ! "null" == "$starting_block_in" ] && [ $starting_block_in -le $starting_block_out ]; then
-            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --testnet --start-height $starting_block_in --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv
+            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --testnet --start-height $starting_block_in --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
             		# one of them is null 
             		# Check if out is not null
             		elif [ ! "null" == "$starting_block_out" ]; then
-            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --testnet --start-height $starting_block_out --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv
+            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --testnet --start-height $starting_block_out --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
             		else # in must not be null
-            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --testnet --start-height $starting_block_in --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv
+            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --testnet --start-height $starting_block_in --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
             		fi
             				
             fi
