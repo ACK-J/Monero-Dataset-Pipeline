@@ -2,7 +2,7 @@
 
 # Requirements: jq
 # Before running this script first compile and run 
-#               "./monerod --testnet --prune-blockchain"       https://github.com/monero-project/monero#compiling-monero-from-source
+#               "./monerod --testnet"       https://github.com/monero-project/monero#compiling-monero-from-source
 # Before running this script first compile xmr2csv from https://github.com/moneroexamples/transactions-export
 # Usage: ./collect.sh
 
@@ -20,10 +20,10 @@ while read dir; do
 	    
 	    echo "Starting a new monero-wallet-rpc process..."
 	    #  Start a RPC server for the current wallet
-            monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
+            monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login & 
             
             echo "Waiting..."
-            sleep 60  # Give the RPC server time to spin up
+            sleep 30  # Give the RPC server time to spin up
             
             view_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
             
@@ -31,19 +31,25 @@ while read dir; do
             while [ "$view_key" == "" ]; do
                echo "Monero-Wallet-RPC server failed to start, retrying..."
                ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
-               monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login >/dev/null 2>&1 & 
-            	sleep 60  # Give the RPC server time to spin up
+               monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login & 
+            	sleep 15  # Give the RPC server time to spin up
             	#  Connect to the RPC server and get the view & spend key
             	view_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
             done	
             
             spend_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
             
+            
+            
             # Get all in and out transactions
             # curl http://127.0.0.1:28088/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"in":true,"out":true}}' -H 'Content-Type: application/json'
 
 	    starting_block_out=`curl http://127.0.0.1:28088/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"in":true,"out":true}}' -H 'Content-Type: application/json' -s | jq '.result.out[0].height'`
 	    starting_block_in=`curl http://127.0.0.1:28088/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"in":true,"out":true}}' -H 'Content-Type: application/json' -s | jq '.result.in[0].height'`
+	    
+	    # DEBUGGING
+	    echo "Lowest OUT $starting_block_out"
+	    echo "Lowest IN $starting_block_in"
 	    
 	    # Kill the wallet rpc wallet
             ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
@@ -67,27 +73,30 @@ while read dir; do
             		fi
             				
             fi
+
             
 cat > ./Export_Wallet.exp <<EOL 
 #!/usr/bin/expect -f
-set timeout 60 
+set timeout 300
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "Wallet password: "
 send -- "\r"
 
 expect "wallet*]:*"
-send -- "export_transfers all output=cli-export-$walletAddr.csv\r"
+send -- "export_transfers all output=cli_export_$walletAddr.csv\r"
 
 expect "wallet*]:*"
 send -- "exit\r"
 
 expect eof
 EOL
+
 chmod 777 ./Export_Wallet.exp && ./Export_Wallet.exp
-echo "Wallet $walletAddr Exported!" && date
+date
+
 	    
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd -
-	#python3 process_exported.py
+	#python3 create_dataset.py
 done < <(find ./Wallets -mindepth 1 -type d | sort -u)
