@@ -1,5 +1,7 @@
 import os
 import pickle
+import time
+import requests
 # find last directories
 # Combine 5 files
 # Enrich data
@@ -8,7 +10,29 @@ import pickle
 # TODO add checkpoint saves
 
 # Key = tx hash, val = dict(transaction metadata)
+import requests as requests
+
 data = {}
+API_URL = "https://testnet.xmrchain.net/api" # NEED TESTNET
+
+
+def enrich_data():
+    for txid in data.keys():
+        tx_response = requests.get(API_URL + "/transaction/" + str(txid)).json()["data"]
+        block_response = requests.get(API_URL + "/block/" + str(tx_response["block_height"])).json()["data"]
+        previous_block_response = requests.get(API_URL + "/block/" + str(int(tx_response["block_height"]) - 1)).json()["data"]
+        data[txid]['Tx_Size'] = tx_response["tx_size"]
+        data[txid]['Tx_Fee_Per_kB'] = float(data[txid]['Tx_Fee']) / int(data[txid]['Tx_Size'])
+        data[txid]['Tx_Timestamp_Epoch'] = tx_response["timestamp"]
+        data[txid]['Num_Confirmations'] = tx_response["confirmations"]
+        data[txid]['Time_Of_Enrichment'] = time.time()
+
+        total_block_fee = 0
+        for tx in block_response["txs"]:
+            total_block_fee += int(tx["tx_fee"])
+        data[txid]['Total_Block_Fee'] = total_block_fee
+        data[txid]['Block_Size'] = block_response["size"]
+        data[txid]['Time_Since_Last_Block'] = int(block_response["timestamp"]) - int(previous_block_response["timestamp"])
 
 
 def combine_files(Wallet_addrs):
@@ -121,13 +145,17 @@ def discover_wallet_directories():
             combine_files(Wallet_addrs)
         print(Wallet_addrs)
         os.chdir(cwd)
-    pass
 
 
 def main():
     discover_wallet_directories()
+    enrich_data()
     with open("data.pkl", "wb") as fp:
         pickle.dump(data, fp)
+
+    # with open("data.pkl", "rb") as fp:
+    #     data = pickle.load(fp)
+
 
 if __name__ == '__main__':
     main()
