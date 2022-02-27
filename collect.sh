@@ -44,7 +44,7 @@ EOL
 
       #  Kill any monero-wallet-rpc processes that are still lingering
       echo "Killing monero-wallet-rpc processes..."
-      pgrep monero-wallet-rpc | xargs -I kill -9 {} 2> /dev/null
+      pgrep monero-wallet-rpc | xargs kill -9 2> /dev/null
 
       #  Start a new monero-wallet-rpc process for the current wallet
       echo "Starting a new monero-wallet-rpc process..."
@@ -60,7 +60,7 @@ EOL
       while [ "$view_key" == "" ]; do
         echo "Monero-Wallet-RPC server failed to start, retrying..."
         #  Kill any monero-wallet-rpc processes that are still lingering
-        pgrep monero-wallet-rpc | xargs -I kill -9 {} 2> /dev/null
+        pgrep monero-wallet-rpc | xargs kill -9 2> /dev/null
         monero-wallet-rpc --rpc-bind-port 28088 --wallet-file "$walletName" --password '' --testnet --disable-rpc-login &
         sleep 30 # Give the RPC server time to spin up
         #  Connect to the RPC server and get the view & spend key
@@ -71,7 +71,7 @@ EOL
       spend_key=$(curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
 
       #  Kill the wallet rpc wallet
-      pgrep monero-wallet-rpc | xargs -I kill -9 {} 2> /dev/null
+      pgrep monero-wallet-rpc | xargs kill -9 2> /dev/null
       echo
       #  Save the epoch time of when the scan started since Decoy_Output_Ring_Member_Frequency will depend on it
       date +%s > xmr2csv_start_time_"$walletAddr".csv
