@@ -18,7 +18,7 @@ while read dir; do  # Read in all directories in ./Wallets
     # Create script to export the current wallet transactions using the monero-wallet-cli
     cat >./Export_Wallet.exp <<EOL
 #!/usr/bin/expect -f
-set timeout 1000
+set timeout 300
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "Wallet password: "
@@ -38,11 +38,11 @@ EOL
     date
 
     #  Get the minimum block height by sorting the blocks in exported transaction file from the cli
-    min_block_height=$(cut -f 1 -d ',' < cli_export_"$walletAddr".csv | awk '{print $1}' | sort -u | head -n 1)
+    min_block_height="$(cut -f 1 -d ',' < cli_export_"$walletAddr".csv | awk '{print $1}' | sort -u | head -n 1)"
 
     #  Kill any monero-wallet-rpc processes that are still lingering
     echo "Killing monero-wallet-rpc processes..."
-    pgrep monero-wallet-rpc | xargs kill -9
+    pgrep monero-wallet-rpc | xargs kill -9 2> /dev/null
 
     #  Start a new monero-wallet-rpc process for the current wallet
     echo "Starting a new monero-wallet-rpc process..."
@@ -58,7 +58,7 @@ EOL
     while [ "$view_key" == "" ]; do
       echo "Monero-Wallet-RPC server failed to start, retrying..."
       #  Kill any monero-wallet-rpc processes that are still lingering
-      pgrep monero-wallet-rpc | xargs kill -9
+      pgrep monero-wallet-rpc | xargs kill -9 2> /dev/null
       monero-wallet-rpc --rpc-bind-port 28088 --wallet-file "$walletName" --password '' --testnet --disable-rpc-login &
       sleep 30 # Give the RPC server time to spin up
       #  Connect to the RPC server and get the view & spend key
@@ -69,8 +69,10 @@ EOL
     spend_key=$(curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
 
     #  Kill the wallet rpc wallet
-    pgrep monero-wallet-rpc | xargs kill -9
+    pgrep monero-wallet-rpc | xargs kill -9 2> /dev/null
     echo
+    #  Save the epoch time of when the scan started since Decoy_Output_Ring_Member_Frequency will depend on it
+    date +%s > xmr2csv_start_time_"$walletAddr".csv
     #  Run xmr2csv using all the collected values
     xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --testnet --start-height "$min_block_height" --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
 
