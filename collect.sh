@@ -7,74 +7,15 @@
 # Usage: ./collect.sh
 
 while read dir; do 
-    cd "$dir"
+    cd "$dir" || exit
     echo "$dir"
     while read walletAddrFile; do  # Loop each .txt wallet addr file
-            #  Gets the name of the current wallet file
-	    walletName=`echo $walletAddrFile | cut -f 2 -d "." | cut -f 2 -d "/"`
-	    #  Gets the address of the curent wallet
-	    walletAddr=`cat "$walletAddrFile"`
+        #  Gets the name of the current wallet file
+	      walletName=$(echo $walletAddrFile | cut -f 2 -d "." | cut -f 2 -d "/")
+	      #  Gets the address of the curent wallet
+	      walletAddr=$(cat "$walletAddrFile")
 	    
-	    echo "Killing monero-Wallet-RPC processes..."
-	    ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
 	    
-	    echo "Starting a new monero-wallet-rpc process..."
-	    #  Start a RPC server for the current wallet
-            monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login & 
-            
-            echo "Waiting..."
-            sleep 30  # Give the RPC server time to spin up
-            
-            view_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
-            
-            # Wait until the rpc server is giving a response
-            while [ "$view_key" == "" ]; do
-               echo "Monero-Wallet-RPC server failed to start, retrying..."
-               ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
-               monero-wallet-rpc --rpc-bind-port 28088 --wallet-file $walletName --password '' --testnet --disable-rpc-login & 
-            	sleep 15  # Give the RPC server time to spin up
-            	#  Connect to the RPC server and get the view & spend key
-            	view_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
-            done	
-            
-            spend_key=`curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r`
-            
-            
-            
-            # Get all in and out transactions
-            # curl http://127.0.0.1:28088/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"in":true,"out":true}}' -H 'Content-Type: application/json'
-
-	    starting_block_out=`curl http://127.0.0.1:28088/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"in":true,"out":true}}' -H 'Content-Type: application/json' -s | jq '.result.out[0].height'`
-	    starting_block_in=`curl http://127.0.0.1:28088/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_transfers","params":{"in":true,"out":true}}' -H 'Content-Type: application/json' -s | jq '.result.in[0].height'`
-	    
-	    # DEBUGGING
-	    echo "Lowest OUT $starting_block_out"
-	    echo "Lowest IN $starting_block_in"
-	    
-	    # Kill the wallet rpc wallet
-            ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
-            
-            if [ "null" == "$starting_block_out" ] && [ "null" == "$starting_block_in" ]; then 
-            		# Both wallets return null for block height
-            		Wallet $(pwd) $walletName is Empty!; 
-            else # At least one is not null
-            		# if neither are null and out < in
-            		if  [ ! "null" == "$starting_block_out" ] && [ ! "null" == "$starting_block_in" ] && [ $starting_block_out -le $starting_block_in ]; then
-            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key  --testnet --start-height $starting_block_out --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
-            		# if neither are null and in < out	
-            		elif [ ! "null" == "$starting_block_out" ] && [ ! "null" == "$starting_block_in" ] && [ $starting_block_in -le $starting_block_out ]; then
-            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --testnet --start-height $starting_block_in --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
-            		# one of them is null 
-            		# Check if out is not null
-            		elif [ ! "null" == "$starting_block_out" ]; then
-            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --testnet --start-height $starting_block_out --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
-            		else # in must not be null
-            				xmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --testnet --start-height $starting_block_in --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
-            		fi
-            				
-            fi
-
-            
 cat > ./Export_Wallet.exp <<EOL 
 #!/usr/bin/expect -f
 set timeout 300
@@ -92,11 +33,43 @@ send -- "exit\r"
 expect eof
 EOL
 
-chmod 777 ./Export_Wallet.exp && ./Export_Wallet.exp
-date
+          chmod 777 ./Export_Wallet.exp && ./Export_Wallet.exp
+          date
+                
+          min_block_height=$(cat cli_export_"$walletAddr".csv | cut -f 1 -d ',' | awk '{print $1}' | sort -u | head -n 1)
+          
+          echo "Killing monero-wallet-rpc processes..."
+          ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
+          
+          echo "Starting a new monero-wallet-rpc process..."
+          #  Start a RPC server for the current wallet
+          monero-wallet-rpc --rpc-bind-port 28088 --wallet-file "$walletName" --password '' --testnet --disable-rpc-login & 
+          
+          echo "Waiting..."
+          sleep 30  # Give the RPC server time to spin up
+          
+          view_key=$(curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
+          
+          # Wait until the rpc server is giving a response
+          while [ "$view_key" == "" ]; do
+             echo "Monero-Wallet-RPC server failed to start, retrying..."
+             ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
+             monero-wallet-rpc --rpc-bind-port 28088 --wallet-file "$walletName" --password '' --testnet --disable-rpc-login & 
+             sleep 15  # Give the RPC server time to spin up
+             #  Connect to the RPC server and get the view & spend key
+             view_key=$(curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
+          done	
+          
+          spend_key=$(curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
 
-	    
-	done < <(find ./ -type f -name "*.txt" | sort -u)
-	cd -
-	#python3 create_dataset.py
+         
+          # Kill the wallet rpc wallet
+          ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
+          echo
+          xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key"  --testnet --start-height "$min_block_height" --ring-members --out-csv-file ./xmr_report_"$walletAddr".csv --out-csv-file2 xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 xmr_report_outgoing_txs_"$walletAddr".csv
+          
+
+    done < <(find ./ -type f -name "*.txt" | sort -u)
+    cd - || exit
+    #python3 create_dataset.py
 done < <(find ./Wallets -mindepth 1 -type d | sort -u)
