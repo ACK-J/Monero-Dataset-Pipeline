@@ -18,7 +18,7 @@ while read dir; do  # Read in all directories in ./Wallets
     # Create script to export the current wallet transactions using the monero-wallet-cli
     cat >./Export_Wallet.exp <<EOL
 #!/usr/bin/expect -f
-set timeout 300
+set timeout 1000
 spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "Wallet password: "
