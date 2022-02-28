@@ -7,11 +7,18 @@
 
 # Usage: chmod +x ./run.sh && ./run.sh
 
+# Global variables of anything that would need to be changed in this file
 NETWORK="stagenet"
 if [[ "$a" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 FUNDING_DELAY="600"
 TERMINAL_TAB_DELAY="60"
 DESKTOP_ENV="xfce4"
+
+#############################################################################
+#            You shouldn't need to edit anything below this line            #
+#############################################################################
+
+
 
 # Ask the user for a number of wallets to make
 read -p "How many wallets would you like (ex. 10)? " numwallets
