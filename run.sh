@@ -58,6 +58,11 @@ expect "Wallet password:*"
 send -- "\r"
 
 expect "wallet*]:*"
+send -- "set refresh-from-block-height 0\r"
+expect "Wallet password:*"
+send -- "\r"
+
+expect "wallet*]:*"
 send -- "exit\r"
 expect eof
 EOL
@@ -85,6 +90,11 @@ send -- "\r"
 
 expect "wallet*]:*"
 send -- "set store-tx-info 1\r"
+expect "Wallet password:*"
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "set refresh-from-block-height 0\r"
 expect "Wallet password:*"
 send -- "\r"
 
@@ -174,7 +184,7 @@ if {[llength \$argv] != 2} {
   puts stderr "Usage: Pass an amount and a priority as arguments!"
   exit 1
 }
-set timeout 200
+set timeout 500
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 set priority [lindex \$argv 1];   # 0 -> 4
 spawn monero-wallet-cli --$NETWORK --wallet ./$walletName --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
