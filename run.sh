@@ -126,8 +126,8 @@ EOL
 		chmod 777 ./$walletName-spend.exp
 		#  A one-liner that took forever to make because nested string interpolation is a pain
 		#  Open a new terminal tab -> Run the script to send a transaction of a random amount and priority taken from real user distribution -> print time / transaction # -> sleep a random time selected from gamma distribution -> repeat
-		xfce4-terminal --tab -x /bin/bash -c "i=1; while : ;do ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \`python3 select_transaction_priority.py\`; date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"
-		#  A delay of opening a new tab to not overload the server. Most wallets will have to scan the network for a while before transacting
+                xfce4-terminal --tab -x /bin/bash -c "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"
+                #  A delay of opening a new tab to not overload the server. Most wallets will have to scan the network for a while before transacting
 		sleep 60
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - || exit # Reset the directory
