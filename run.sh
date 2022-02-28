@@ -135,7 +135,7 @@ expect "Wallet password: "
 send -- "\r"
 
 expect "wallet*]:*"
-send -- "set refresh-from-block-height 0\r"
+send -- "set refresh-from-block-height 1038960\r"
 expect "Wallet password:*"
 send -- "\r"
 
