@@ -8,8 +8,8 @@
 # Usage: chmod +x ./run.sh && ./run.sh
 
 # Global variables of anything that would need to be changed in this file
-NETWORK="stagenet"
-if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
+NETWORK="Stagenet"  # Case-sensitive (make sure first letter is capitalized)
+if [[ "$NETWORK" == "Stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 FUNDING_DELAY="600"
 TERMINAL_TAB_DELAY="60"
 DESKTOP_ENV="xfce4"
