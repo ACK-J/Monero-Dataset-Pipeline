@@ -7,6 +7,8 @@
 
 # Usage: chmod +x ./run.sh && ./run.sh
 
+NETWORK="stagenet"
+
 # Ask the user for a number of wallets to make
 read -p "How many wallets would you like (ex. 10)? " numwallets
 cd "./Wallets" || exit
@@ -39,7 +41,7 @@ while read walletFile; do
   cat > ./FundWallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --testnet --wallet ./FundingWallet --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --$NETWORK --wallet ./FundingWallet --daemon-address $NETWORK.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
@@ -97,7 +99,7 @@ if {[llength \$argv] != 2} {
 set timeout 200
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 set priority [lindex \$argv 1];   # 0 -> 4
-spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --$NETWORK --wallet ./$walletName --daemon-address $NETWORK.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
