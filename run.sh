@@ -38,7 +38,7 @@ done < <(find ./Wallets -mindepth 1 -type d | sort -u)
 while read walletFile; do
   walletAddr=$(cat "$walletFile") #  Get the wallet addr from the txt file
   # Make a new expect script substituting the addr to fund the wallet
-  cat > ./FundWallet.exp <<EOL
+  cat > ./$NETWORK-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
 spawn monero-wallet-cli --$NETWORK --wallet ./$NETWORK-FundingWallet --daemon-address $NETWORK.melo.tools:28081 --log-file /dev/null --trusted-daemon
@@ -65,7 +65,7 @@ expect {
 expect eof
 EOL
   #  Run the script
-  chmod 777 ./FundWallet.exp && ./FundWallet.exp
+  chmod 777 ./$NETWORK-FundWallet.exp && ./$NETWORK-FundWallet.exp
   echo "Wallet $walletFile Funded!" && date
   sleep 600 # Wait 10 minutes instead of 20
 done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
