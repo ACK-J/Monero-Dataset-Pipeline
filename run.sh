@@ -8,8 +8,8 @@
 # Usage: chmod +x ./run.sh && ./run.sh
 
 # Global variables of anything that would need to be changed in this file
-NETWORK="Stagenet"  # Case-sensitive (make sure first letter is capitalized)
-if [[ "$NETWORK" == "Stagenet" ]];then PORT="38081"; else PORT="28081"; fi
+NETWORK="stagenet"  # Case-sensitive (make all lowercase)
+if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 FUNDING_DELAY="600"
 TERMINAL_TAB_DELAY="60"
 DESKTOP_ENV="xfce4"
@@ -119,7 +119,7 @@ while read walletFile; do
   cat > ./$NETWORK-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/$NETWORK-Funding --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Funding --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
