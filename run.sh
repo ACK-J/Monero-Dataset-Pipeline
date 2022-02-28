@@ -119,7 +119,7 @@ while read walletFile; do
   cat > ./$NETWORK-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/$NETWORK-FundingWallet.keys --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/$NETWORK-Funding --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
