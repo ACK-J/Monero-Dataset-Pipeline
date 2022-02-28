@@ -19,6 +19,71 @@ cd - || exit
 
 
 
+# Generate the two scripts that will make wallets 1 and 2 respectively
+cat > ./Wallets/MakeWallet1.exp <<EOL
+#!/usr/bin/expect -f
+set timeout -1
+spawn monero-wallet-cli --$NETWORK --generate-new-wallet Wallet1 --create-address-file --password "" --log-file /dev/null --trusted-daemon
+match_max 10000
+expect "language of your choice"
+send -- "1\r"
+
+expect "Do you want to do it now? (Y/Yes/N/No):*"
+send -- "N\r"
+
+expect "wallet*]:*"
+send -- "set ask-password 0\r"
+expect "*Wallet password:*"
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "set inactivity-lock-timeout 0\r"
+expect "*Wallet password:*"
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "set store-tx-info 1\r"
+expect "Wallet password:*"
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "exit\r"
+expect eof
+EOL
+
+cat > ./Wallets/MakeWallet2.exp <<EOL
+#!/usr/bin/expect -f
+set timeout -1
+spawn monero-wallet-cli --$NETWORK --generate-new-wallet Wallet2 --create-address-file --password "" --log-file /dev/null --trusted-daemon
+match_max 10000
+expect "language of your choice"
+send -- "1\r"
+
+expect "Do you want to do it now? (Y/Yes/N/No):*"
+send -- "N\r"
+
+expect "wallet*]:*"
+send -- "set ask-password 0\r"
+expect "*Wallet password:*"
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "set inactivity-lock-timeout 0\r"
+expect "*Wallet password:*"
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "set store-tx-info 1\r"
+expect "Wallet password:*"
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "exit\r"
+expect eof
+EOL
+
+
+
 
 # Make 2 wallets per folder
 while read dir
@@ -41,7 +106,7 @@ while read walletFile; do
   cat > ./$NETWORK-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --$NETWORK --wallet ./$NETWORK-FundingWallet --daemon-address $NETWORK.melo.tools:28081 --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/$NETWORK-FundingWallet --daemon-address $NETWORK.melo.tools:28081 --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
