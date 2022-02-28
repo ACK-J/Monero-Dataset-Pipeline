@@ -135,6 +135,14 @@ expect "Wallet password: "
 send -- "\r"
 
 expect "wallet*]:*"
+send -- "set refresh-from-block-height 0\r"
+expect "Wallet password:*"
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "rescan_bc soft\r"
+
+expect "wallet*]:*"
 send -- "transfer $walletAddr 0.35\r"
 
 expect {
