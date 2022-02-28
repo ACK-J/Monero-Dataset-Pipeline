@@ -140,7 +140,9 @@ expect "Wallet password:*"
 send -- "\r"
 
 expect "wallet*]:*"
-send -- "rescan_bc soft\r"
+send -- "rescan_bc hard\r"
+expect "Rescan anyway?  (Y/Yes/N/No):*"
+send -- "yes\r"
 
 expect "wallet*]:*"
 send -- "transfer $walletAddr 0.35\r"
