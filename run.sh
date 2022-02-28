@@ -82,6 +82,8 @@ send -- "exit\r"
 expect eof
 EOL
 
+chmod 777 ./Wallets/MakeWallet1.exp && chmod 777 ./Wallets/MakeWallet2.exp
+
 
 
 
