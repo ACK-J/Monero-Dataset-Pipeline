@@ -120,13 +120,8 @@ done < <(find ./Wallets -mindepth 1 -type d | sort -u)
 
 
 
-
-
-# Fund the wallets (This part is slow but no real way around it)
-while read walletFile; do
-  walletAddr=$(cat "$walletFile") #  Get the wallet addr from the txt file
-  # Make a new expect script substituting the addr to fund the wallet
-  cat > ./$NETWORK-FundWallet.exp <<EOL
+#  Refresh the funding wallet before use
+cat > ./$NETWORK-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
 spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Funding --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
@@ -143,6 +138,24 @@ expect "wallet*]:*"
 send -- "rescan_bc hard\r"
 expect "Rescan anyway?  (Y/Yes/N/No):*"
 send -- "yes\r"
+expect eof
+EOL
+#  Run the script
+chmod 777 ./$NETWORK-FundWallet.exp && ./$NETWORK-FundWallet.exp
+
+
+
+# Fund the wallets (This part is slow but no real way around it)
+while read walletFile; do
+  walletAddr=$(cat "$walletFile") #  Get the wallet addr from the txt file
+  # Make a new expect script substituting the addr to fund the wallet
+  cat > ./$NETWORK-FundWallet.exp <<EOL
+#!/usr/bin/expect -f
+set timeout -1
+spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Funding --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
+match_max 10000
+expect "Wallet password: "
+send -- "\r"
 
 expect "wallet*]:*"
 send -- "transfer $walletAddr 0.35\r"
