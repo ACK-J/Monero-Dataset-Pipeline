@@ -120,6 +120,9 @@ done < <(find ./Wallets -mindepth 1 -type d | sort -u)
 
 
 
+
+
+
 #  Refresh the funding wallet before use
 cat > ./$NETWORK-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
@@ -138,10 +141,15 @@ expect "wallet*]:*"
 send -- "rescan_bc hard\r"
 expect "Rescan anyway?  (Y/Yes/N/No):*"
 send -- "yes\r"
+expect "wallet*]:"
+send -- "exit\r"
 expect eof
 EOL
 #  Run the script
 chmod 777 ./$NETWORK-FundWallet.exp && ./$NETWORK-FundWallet.exp
+
+
+
 
 
 
