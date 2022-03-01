@@ -12,7 +12,8 @@ import requests
 
 # Key = tx hash, val = dict(transaction metadata)
 data = {}
-API_URL = "https://melo.tools/explorer/testnet/api"
+NETWORK = "testnet"
+API_URL = "https://melo.tools/explorer/" + NETWORK + "/api"
 
 
 def enrich_data():
@@ -22,10 +23,13 @@ def enrich_data():
             block_response = requests.get(API_URL + "/block/" + str(tx_response["block_height"])).json()["data"]
             previous_block_response = requests.get(API_URL + "/block/" + str(int(tx_response["block_height"]) - 1)).json()["data"]
             data[txid]['Tx_Size'] = tx_response["tx_size"]
+            # Check if the fee is missing
+            if 'Tx_Fee' not in data[txid].keys():
+                data[txid]['Tx_Fee'] = float(tx_response['tx_fee'] * 0.000000000001) #  Converted from piconero to monero
             data[txid]['Tx_Fee_Per_Byte'] = float(data[txid]['Tx_Fee']) / int(data[txid]['Tx_Size'])
             data[txid]['Tx_Timestamp_Epoch'] = tx_response["timestamp"]
             data[txid]['Num_Confirmations'] = tx_response["confirmations"]
-            data[txid]['Time_Of_Enrichment'] = time.time()
+            data[txid]['Time_Of_Enrichment'] = int(time.time())
             if tx_response["coinbase"] == "false":
                 data[txid]['Is_Coinbase_Tx'] = False
             elif tx_response["coinbase"] == "true":
@@ -35,7 +39,6 @@ def enrich_data():
             data[txid]['Payment_ID'] = tx_response["payment_id"]
             data[txid]['Payment_ID8'] = tx_response["payment_id8"]
 
-
             total_block_fee = 0
             for tx in block_response["txs"]:
                 total_block_fee += int(tx["tx_fee"])
@@ -43,7 +46,7 @@ def enrich_data():
             data[txid]['Block_Size'] = block_response["size"]
             data[txid]['Time_Since_Last_Block'] = int(block_response["timestamp"]) - int(previous_block_response["timestamp"])
         except Exception as e:
-            pass
+            print(e)
 
 
 def combine_files(Wallet_addrs):
@@ -62,10 +65,11 @@ def combine_files(Wallet_addrs):
                     transaction['Wallet_Balance'] = float(values[5].strip())
                     transaction['Tx_Fee'] = values[8].strip()
                     transaction['Destination_Address'] = values[9].strip()
+                    transaction['Network'] = NETWORK
 
                     with open("./xmr2csv_start_time_" + addr + ".csv", "r") as fp:
                         for line in fp:
-                            transaction['xmr2csv_Data_Collection_Time'] = line
+                            transaction['xmr2csv_Data_Collection_Time'] = line.strip()
 
                     if transaction['Tx_Hash'] not in data:
                         data[transaction['Tx_Hash']] = transaction
@@ -160,7 +164,6 @@ def discover_wallet_directories():
             if name.lower().endswith(".csv"):
                 if root not in unique_directories:
                     unique_directories.append(root)
-    print(unique_directories)
     cwd = os.getcwd()
     for dir in unique_directories:
         os.chdir(dir)
@@ -172,7 +175,6 @@ def discover_wallet_directories():
                     if addr not in Wallet_addrs:
                         Wallet_addrs.append(addr)
             combine_files(Wallet_addrs)
-        print(Wallet_addrs)
         os.chdir(cwd)
 
 
@@ -184,7 +186,7 @@ def main():
 
     # with open("data.pkl", "rb") as fp:
     #     data = pickle.load(fp)
-
+    # pass
 
 if __name__ == '__main__':
     main()
