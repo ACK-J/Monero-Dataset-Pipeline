@@ -42,7 +42,7 @@ def enrich_data():
             total_block_fee = 0
             for tx in block_response["txs"]:
                 total_block_fee += int(tx["tx_fee"])
-            data[txid]['Total_Block_Fee'] = total_block_fee
+            data[txid]['Total_Block_Fee'] = float(total_block_fee * 0.000000000001) #  Converted from piconero to monero
             data[txid]['Block_Size'] = block_response["size"]
             data[txid]['Time_Since_Last_Block'] = int(block_response["timestamp"]) - int(previous_block_response["timestamp"])
         except Exception as e:
@@ -55,7 +55,7 @@ def combine_files(Wallet_addrs):
             next(fp)  # Skip header of csv
             for line in fp:
                 values = line.split(",")
-                if values[1].strip() == "out":
+                if values[1].strip() == "out": #  Only add outgoing transactions to the dataset
                     transaction = {}
                     transaction['Tx_Hash'] = values[6].strip()
                     transaction['Block_Number'] = int(values[0].strip())
@@ -63,13 +63,14 @@ def combine_files(Wallet_addrs):
                     transaction['Tx_Timestamp'] = values[3].strip()
                     transaction['Amount'] = float(values[4].strip())
                     transaction['Wallet_Balance'] = float(values[5].strip())
-                    transaction['Tx_Fee'] = values[8].strip()
+                    transaction['Tx_Fee'] = float(values[8].strip())
                     transaction['Destination_Address'] = values[9].strip()
                     transaction['Network'] = NETWORK
 
                     with open("./xmr2csv_start_time_" + addr + ".csv", "r") as fp:
                         for line in fp:
-                            transaction['xmr2csv_Data_Collection_Time'] = line.strip()
+                            transaction['xmr2csv_Data_Collection_Time'] = int(line.strip())
+                            break
 
                     if transaction['Tx_Hash'] not in data:
                         data[transaction['Tx_Hash']] = transaction
@@ -84,18 +85,19 @@ def combine_files(Wallet_addrs):
                     data[values[2].strip()]['Output_Pub_Key'] = values[8].strip()
                     data[values[2].strip()]['Output_Key_Img'] = values[9].strip()
                     data[values[2].strip()]['Output_Number_Spent'] = values[10].strip()
-                else:
-                    transaction = {}
-                    transaction['Tx_Hash'] = values[2].strip()
-                    transaction['Tx_Version'] = values[4].strip()
-                    transaction['Tx_Public_Key'] = values[3].strip()
-                    transaction['Output_Pub_Key'] = values[8].strip()
-                    transaction['Output_Key_Img'] = values[9].strip()
-                    transaction['Output_Number_Spent'] = values[10].strip()
-                    with open("./xmr2csv_start_time_" + addr + ".csv", "r") as fp:
-                        for line in fp:
-                            transaction['xmr2csv_Data_Collection_Time'] = line
-                    data[values[2].strip()] = transaction
+                # else:
+                #     transaction = {}
+                #     transaction['Tx_Hash'] = values[2].strip()
+                #     transaction['Tx_Version'] = values[4].strip()
+                #     transaction['Tx_Public_Key'] = values[3].strip()
+                #     transaction['Output_Pub_Key'] = values[8].strip()
+                #     transaction['Output_Key_Img'] = values[9].strip()
+                #     transaction['Output_Number_Spent'] = values[10].strip()
+                #     with open("./xmr2csv_start_time_" + addr + ".csv", "r") as fp:
+                #         for line in fp:
+                #             transaction['xmr2csv_Data_Collection_Time'] = int(line.strip())
+                #             break
+                #     data[values[2].strip()] = transaction
 
         with open("./xmr_report_outgoing_txs_" + addr + ".csv", "r") as fp:
             next(fp)  # Skip header of csv
@@ -113,7 +115,8 @@ def combine_files(Wallet_addrs):
                     transaction['Ring_no/Ring_size'] = values[5].strip()
                     with open("./xmr2csv_start_time_" + addr + ".csv", "r") as fp:
                         for line in fp:
-                            transaction['xmr2csv_Data_Collection_Time'] = line
+                            transaction['xmr2csv_Data_Collection_Time'] = int(line.strip())
+                            break
                     data[values[2].strip()] = transaction
 
         # with open("./xmr_report_ring_members_" + addr + ".csv", "r") as fp:
@@ -132,7 +135,8 @@ def combine_files(Wallet_addrs):
         #             transaction['Ring_no/Ring_size'] = values[5].strip()
         #             with open("./xmr2csv_start_time_" + addr + ".csv", "r") as fp:
         #                 for line in fp:
-        #                     transaction['xmr2csv_Data_Collection_Time'] = line
+        #                     transaction['xmr2csv_Data_Collection_Time'] = int(line.strip())
+        #                     break
         #             data[values[2].strip()] = transaction
 
         # with open("./xmr_report_ring_members_freq_" + addr + ".csv", "r") as fp:
@@ -152,8 +156,8 @@ def combine_files(Wallet_addrs):
         #             data[values[2].strip()] = transaction
         #             with open("./xmr2csv_start_time_" + addr + ".csv", "r") as fp:
         #                 for line in fp:
-        #                     transaction['xmr2csv_Data_Collection_Time'] = line
-
+        #                     transaction['xmr2csv_Data_Collection_Time'] = int(line.strip())
+        #                     break
 
 
 def discover_wallet_directories():
@@ -161,32 +165,43 @@ def discover_wallet_directories():
     unique_directories = []
     for root, dirs, files in os.walk("./Wallets"):
         for name in files:
+            #  Find all csv files
             if name.lower().endswith(".csv"):
+                #  Find all the unique folders holding csv files
                 if root not in unique_directories:
                     unique_directories.append(root)
-    cwd = os.getcwd()
-    for dir in unique_directories:
+    cwd = os.getcwd()  # Set a starting directory
+    #  Go through each directory that has csv files in it
+    for idx, dir in enumerate(unique_directories):
         os.chdir(dir)
         Wallet_addrs = []
         for root, dirs, files in os.walk("."):
             for name in files:
+                #  Get each csv file
                 if name.lower().endswith(".csv"):
+                    #  Extract the 2 unique wallet addr from the name of the files
                     addr = name[::-1].split(".")[1].split("_")[0][::-1]
                     if addr not in Wallet_addrs:
                         Wallet_addrs.append(addr)
-            combine_files(Wallet_addrs)
+                    #  Dont keep looking if the two wallet addresses are already found
+                    if len(Wallet_addrs) == 2:
+                        break
+        #  Once the two wallet addr are found send the list to combine the files
+        combine_files(Wallet_addrs)
         os.chdir(cwd)
 
 
 def main():
     discover_wallet_directories()
     enrich_data()
+    global data
     with open("data.pkl", "wb") as fp:
         pickle.dump(data, fp)
 
     # with open("data.pkl", "rb") as fp:
     #     data = pickle.load(fp)
     # pass
+
 
 if __name__ == '__main__':
     main()
