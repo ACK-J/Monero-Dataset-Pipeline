@@ -6,6 +6,16 @@
 # Before running this script first compile xmr2csv from https://github.com/moneroexamples/transactions-export
 # Usage: ./collect.sh
 
+
+# Global variables of anything that would need to be changed in this file
+NETWORK="stagenet"  # Case-sensitive (make all lowercase)
+if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
+REMOTE_NODE="community.rino.io"
+
+#############################################################################
+#            You shouldn't need to edit anything below this line            #
+#############################################################################
+
 while read dir; do  # Read in all directories in ./Wallets
   cd "$dir" || exit
   echo "$dir"
@@ -19,7 +29,7 @@ while read dir; do  # Read in all directories in ./Wallets
     cat >./Export_Wallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address testnet.melo.tools:28081 --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --testnet --wallet ./$walletName --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "Wallet password: "
 send -- "\r"
