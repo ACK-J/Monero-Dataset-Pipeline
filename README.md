@@ -25,5 +25,9 @@ rescan_bc soft
 # Testnet Nodes
 ```
 testnet.xmr-tw.org:28081
-testnet.melo.tools:28081
+testnet.community.rino.io:28081
+```
+# Stagenet Nodes
+```
+stagenet.community.rino.io
 ```
