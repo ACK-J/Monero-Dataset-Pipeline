@@ -2,10 +2,6 @@ import os
 import pickle
 import time
 import requests
-# find last directories
-# Combine 5 files
-# Enrich data
-# Add to final dataset
 
 # TODO add checkpoint saves
 # TODO add tx inputs and decoy info
@@ -13,7 +9,7 @@ import requests
 # Key = tx hash, val = dict(transaction metadata)
 data = {}
 NETWORK = "testnet"
-API_URL = "https://melo.tools/explorer/" + NETWORK + "/api"
+API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"
 
 
 def enrich_data():
