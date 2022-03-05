@@ -10,6 +10,7 @@
 # Global variables of anything that would need to be changed in this file
 NETWORK="stagenet"  # Case-sensitive (make all lowercase)
 if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
+REMOTE_NODE="community.rino.io"
 FUNDING_DELAY="600"
 TERMINAL_TAB_DELAY="60"
 DESKTOP_ENV="xfce4"
@@ -127,7 +128,7 @@ done < <(find ./Wallets -mindepth 1 -type d | sort -u)
 cat > ./$NETWORK-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Funding --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Funding --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
@@ -160,7 +161,7 @@ while read walletFile; do
   cat > ./$NETWORK-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Funding --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Funding --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
@@ -218,7 +219,7 @@ if {[llength \$argv] != 2} {
 set timeout 500
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 set priority [lindex \$argv 1];   # 0 -> 4
-spawn monero-wallet-cli --$NETWORK --wallet ./$walletName --daemon-address $NETWORK.melo.tools:$PORT --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --$NETWORK --wallet ./$walletName --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
