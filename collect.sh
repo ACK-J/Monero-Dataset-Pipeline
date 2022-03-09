@@ -91,5 +91,4 @@ EOL
 
   done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
   cd - || exit
-  #python3 create_dataset.py
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) #  Find wallet directories
