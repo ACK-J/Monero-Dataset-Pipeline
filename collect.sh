@@ -58,27 +58,27 @@ EOL
 
       #  Start a new monero-wallet-rpc process for the current wallet
       echo "Starting a new monero-wallet-rpc process..."
-      monero-wallet-rpc --rpc-bind-port 28088 --wallet-file "$walletName" --password '' --testnet --disable-rpc-login &
+      monero-wallet-rpc --rpc-bind-port $PORT --wallet-file "$walletName" --password '' --testnet --disable-rpc-login &
 
       echo "Waiting..."
       sleep 30 # Give the RPC server time to spin up
 
       #  Query the monero-wallet-rpc process and collect the view key
-      view_key=$(curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
+      view_key=$(curl http://127.0.0.1:$PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
 
       # Wait until the rpc server is giving a response
       while [ "$view_key" == "" ]; do
         echo "Monero-Wallet-RPC server failed to start, retrying..."
         #  Kill any monero-wallet-rpc processes that are still lingering
         ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
-        monero-wallet-rpc --rpc-bind-port 28088 --wallet-file "$walletName" --password '' --testnet --disable-rpc-login &
+        monero-wallet-rpc --rpc-bind-port $PORT --wallet-file "$walletName" --password '' --testnet --disable-rpc-login &
         sleep 45 # Give the RPC server time to spin up
         #  Connect to the RPC server and get the view & spend key
-        view_key=$(curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
+        view_key=$(curl http://127.0.0.1:$PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
       done
 
       #  Query the monero-wallet-rpc process and collect the spend key
-      spend_key=$(curl http://127.0.0.1:28088/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
+      spend_key=$(curl http://127.0.0.1:$PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
 
       #  Kill the wallet rpc wallet
       ps aux | grep monero-wallet-rpc | awk '{ print $2 }' | head -n +2 | xargs kill -9
