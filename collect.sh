@@ -93,4 +93,4 @@ EOL
 
   done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
   cd - || exit
-done < <(find . -type f -name '*.txt' | sed -r 's|/[^/]+$||' | sort -u) #  Find wallet directories
+done < <(find . -type f -mindepth 2 -name '*.txt' | sed -r 's|/[^/]+$||' | sort -u) #  Find wallet directories
