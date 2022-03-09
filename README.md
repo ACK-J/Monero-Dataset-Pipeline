@@ -22,6 +22,9 @@ rescan_bc soft
 # Check how many terminal tabs are open
 `ps --ppid $(pgrep xfce4-terminal)  | wc -l`
 
+# After Running ./collect Gather the Ring Positions
+`find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
+
 # Testnet Nodes
 ```
 testnet.xmr-tw.org:28081
