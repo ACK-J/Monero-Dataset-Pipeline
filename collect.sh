@@ -9,7 +9,7 @@
 
 # Global variables of anything that would need to be changed in this file
 NETWORK="stagenet"  # Case-sensitive (make all lowercase)
-if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
+if [[ "$NETWORK" == "stagenet" ]];then PORT="38088"; else PORT="28088"; fi
 REMOTE_NODE="community.rino.io"
 
 #############################################################################
