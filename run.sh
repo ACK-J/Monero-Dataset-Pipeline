@@ -142,10 +142,14 @@ match_max 10000
 expect "Wallet password: "
 send -- "\r"
 
+####################################################### STAGENET DEBUGGING
+
 expect "wallet*]:*"
 send -- "set refresh-from-block-height 1038960\r"
 expect "Wallet password:*"
 send -- "\r"
+
+#######################################################
 
 expect "wallet*]:*"
 send -- "rescan_bc hard\r"
