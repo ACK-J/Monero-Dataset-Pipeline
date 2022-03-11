@@ -12,6 +12,7 @@ NETWORK="stagenet"  # Case-sensitive (make all lowercase)
 if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 REMOTE_NODE="community.rino.io"
 FUNDING_DELAY="600"
+FUNDING_AMOUNT="0.9"
 TERMINAL_TAB_DELAY="60"
 DESKTOP_ENV="xfce4"
 
@@ -58,10 +59,14 @@ send -- "set store-tx-info 1\r"
 expect "Wallet password:*"
 send -- "\r"
 
+####################################################### STAGENET DEBUGGING
+
 expect "wallet*]:*"
 send -- "set refresh-from-block-height 1038960\r"
 expect "Wallet password:*"
 send -- "\r"
+
+#######################################################
 
 expect "wallet*]:*"
 send -- "exit\r"
@@ -94,10 +99,14 @@ send -- "set store-tx-info 1\r"
 expect "Wallet password:*"
 send -- "\r"
 
+####################################################### STAGENET DEBUGGING
+
 expect "wallet*]:*"
 send -- "set refresh-from-block-height 1038960\r"
 expect "Wallet password:*"
 send -- "\r"
+
+#######################################################
 
 expect "wallet*]:*"
 send -- "exit\r"
@@ -167,13 +176,13 @@ expect "Wallet password: "
 send -- "\r"
 
 expect "wallet*]:*"
-send -- "transfer $walletAddr 0.35\r"
+send -- "transfer $walletAddr $FUNDING_AMOUNT\r"
 
 expect {
 
         "Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "Error: *\[wallet*" {sleep 1;send "transfer $walletAddr 0.35\r";exp_continue}
+        "Error: *\[wallet*" {sleep 1;send "transfer $walletAddr $FUNDING_AMOUNT\r";exp_continue}
 
         "(out of sync)]: *" {send "refresh\r";exp_continue}
 
