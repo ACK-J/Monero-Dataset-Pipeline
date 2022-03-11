@@ -9,6 +9,7 @@ If you are not using the gnome desktop environment you will have to change [this
 ```
 sudo apt update
 sudo apt install jq expect python3 -y
+pip3 install numpy
 cd ~ && wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2
 tar -xvf monero-linux-x64-v0.17.3.0.tar.bz2 && cd monero-x86_64-linux-gnu-v0.17.3.0 && sudo cp monero* /usr/bin/ && cd ..
 git clone git@github.com:ACK-J/XMR-Transaction-Automation.git && cd XMR-Transaction-Automation
