@@ -37,7 +37,7 @@ expect "Wallet password: "
 send -- "\r"
 
 expect "wallet*]:*"
-send -- "export_transfers all output=cli_export_$walletAddr.csv\r"
+send -- "export_transfers out output=cli_export_$walletAddr.csv\r"
 
 expect "wallet*]:*"
 send -- "exit\r"
