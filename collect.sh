@@ -9,14 +9,14 @@
 
 # Global variables
 REMOTE_NODE="community.rino.io"
-NETWORK="testnet"  # Case-sensitive (make all lowercase)
-if [[ "$NETWORK" == "stagenet" ]];then REMOTE_RPC_PORT="38081"; else REMOTE_RPC_PORT="28081"; fi
-if [[ "$NETWORK" == "stagenet" ]];then LOCAL_RPC_PORT="38088"; else LOCAL_RPC_PORT="28088"; fi
-
+NETWORK="testnet"  # Case-sensitive (make all lowercase) (Options: "testnet" or "stagenet")
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
 #############################################################################
+
+if [[ "$NETWORK" == "stagenet" ]];then REMOTE_RPC_PORT="38081"; else REMOTE_RPC_PORT="28081"; fi
+if [[ "$NETWORK" == "stagenet" ]];then LOCAL_RPC_PORT="38088"; else LOCAL_RPC_PORT="28088"; fi
 
 while read dir; do  # Read in all directories in ./Wallets
   cd "$dir" || exit
