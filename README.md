@@ -24,6 +24,16 @@ rescan_bc soft
 # After Running ./collect Gather the Ring Positions
 `find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
 
+# Sample from Gamma Distribution
+```
+from math import exp
+import numpy as np
+for i in range(100000):
+	x = int(exp(np.random.gamma(19.28, 1.0/1.61, 1))) + 1200
+	with open("gamma.txt","a") as fp:
+		fp.write(str(x) + "\n")
+```
+
 # Testnet Nodes
 ```
 testnet.xmr-tw.org:28081
