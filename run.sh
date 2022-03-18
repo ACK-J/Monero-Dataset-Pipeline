@@ -186,7 +186,7 @@ expect {
 
         "Transaction successfully submitted*wallet*]:*" {send "exit\r"}
 
-        "Error: *\[wallet*" {sleep 1;send "transfer $walletAddr $FUNDING_AMOUNT\r";exp_continue}
+        "Error: *\[wallet*" {sleep 10;send "transfer $walletAddr $FUNDING_AMOUNT\r";exp_continue}
 
         "(out of sync)]: *" {send "refresh\r";exp_continue}
 
