@@ -190,7 +190,7 @@ expect {
 
         "(out of sync)]: *" {send "refresh\r";exp_continue}
 
-        "Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
+        "(Y/Yes/N/No): *"  {send "y\r";exp_continue}
 
 	timeout {send "transfer $walletAddr \$amount\r";exp_continue}
 
@@ -251,7 +251,7 @@ expect {
 
         "(out of sync)]: *" {send "refresh\r";exp_continue}
 
-        "Is this okay?  (Y/Yes/N/No): *"  {send "y\r";exp_continue}
+        "(Y/Yes/N/No): *"  {send "y\r";exp_continue}
 
 	timeout {send "transfer $walletAddr \$amount\r";exp_continue}
 
