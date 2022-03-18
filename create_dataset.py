@@ -59,6 +59,8 @@ def enrich_data():
                         'Mixins': input['mixins']
                     }
                 )
+            data[txid]['Num_Inputs'] = len(data[txid]['Inputs'])
+            data[txid]['Num_Outputs'] = len(data[txid]['Outputs'])
             pass
         except Exception as e:
             print(e)
@@ -73,7 +75,6 @@ def combine_files(Wallet_addrs):
                 cli_csv_values = line.split(",")
                 if cli_csv_values[1].strip() == "out": #  Only add outgoing transactions to the dataset
                     transaction = {}
-                    transaction['Tx_Hash'] = cli_csv_values[6].strip()
                     transaction['Block_Number'] = int(cli_csv_values[0].strip())
                     transaction['Direction'] = cli_csv_values[1].strip()
                     transaction['Tx_Timestamp'] = cli_csv_values[3].strip()
@@ -87,9 +88,9 @@ def combine_files(Wallet_addrs):
                         for line2 in fp2:
                             transaction['xmr2csv_Data_Collection_Time'] = int(line2.strip())
                             break
-
-                    if transaction['Tx_Hash'] not in data:
-                        data[transaction['Tx_Hash']] = transaction
+                    #  Check if the hash is a key in the dataset
+                    if cli_csv_values[6].strip() not in data:
+                        data[cli_csv_values[6].strip()] = transaction
 
         with open("./xmr_report_" + addr + ".csv", "r") as fp:
             next(fp)  # Skip header of csv
@@ -112,7 +113,6 @@ def combine_files(Wallet_addrs):
                             Ring_Member = {}
                             #  Make sure the ring members public key matches the current public key
                             if data[xmr2csv_report_csv_values[2].strip()]['Output_Pub_Key'] == ring_members_csv_values[3].strip():
-                                Ring_Member['Tx_Hash'] = ring_members_csv_values[2].strip()
                                 Ring_Member['Block_Number'] = ring_members_csv_values[1].strip()
                                 # Convert timestamp to epoch time before saving
                                 p = "%Y-%m-%d %H:%M:%S"
@@ -147,7 +147,6 @@ def combine_files(Wallet_addrs):
                     data[xmr2csv_outgoing_csv_values[2].strip()]['Ring_no/Ring_size'] = xmr2csv_outgoing_csv_values[5].strip()
                 else:
                     transaction = {}
-                    transaction['Tx_Hash'] = xmr2csv_outgoing_csv_values[2].strip()
                     transaction['Tx_Timestamp'] = xmr2csv_outgoing_csv_values[0].strip()
                     transaction['Block_Number'] = xmr2csv_outgoing_csv_values[1].strip()
                     transaction['Output_Pub_Key'] = xmr2csv_outgoing_csv_values[3].strip()
