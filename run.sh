@@ -229,7 +229,7 @@ if {[llength \$argv] != 2} {
   puts stderr "Usage: Pass an amount and a priority as arguments!"
   exit 1
 }
-set timeout 43200
+set timeout 21600
 set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
 set priority [lindex \$argv 1];   # 0 -> 4
 spawn monero-wallet-cli --$NETWORK --wallet ./$walletName --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
