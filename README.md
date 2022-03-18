@@ -44,3 +44,9 @@ testnet.community.rino.io:28081
 ```
 stagenet.community.rino.io
 ```
+
+# Diagrams
+
+![run](https://user-images.githubusercontent.com/60232273/159022433-a8f371fc-2a5d-4d97-a8ec-88aa6eba759f.png)
+![collect](https://user-images.githubusercontent.com/60232273/159022449-a2f0506c-7423-4283-82a5-98d54463175e.png)
+![create](https://user-images.githubusercontent.com/60232273/159022486-56a2647d-2b2e-42e5-98bb-2fe583cd28e8.png)
