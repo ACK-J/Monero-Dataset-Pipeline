@@ -18,7 +18,7 @@ NETWORK="testnet"  # Case-sensitive (make all lowercase) (Options: "testnet" or 
 if [[ "$NETWORK" == "stagenet" ]];then REMOTE_RPC_PORT="38081"; else REMOTE_RPC_PORT="28081"; fi
 if [[ "$NETWORK" == "stagenet" ]];then LOCAL_RPC_PORT="38088"; else LOCAL_RPC_PORT="28088"; fi
 
-while read dir; do  # Read in all directories in ./Wallets
+while read dir; do  # Read in all directories that contain a .txt file in the current directory
   cd "$dir" || exit
   echo "$dir"
   while read walletAddrFile; do # Loop each .txt wallet addr file
@@ -93,4 +93,4 @@ EOL
 
   done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
   cd - || exit
-done < <(find . -mindepth 2 -type f -name '*.txt' | sed -r 's|/[^/]+$||' | sort -u) #  Find wallet directories
+done < <(find . -mindepth 2 -type f -name '*.txt' | sed -r 's|/[^/]+$||' | sort -u) #  Find wallet directories that contain a .txt file
