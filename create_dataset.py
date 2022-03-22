@@ -120,11 +120,10 @@ def enrich_data(tx_hash):
                 data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Time_Delta_From_Oldest_Decoy_To_Block'] = int((datetime.fromtimestamp(decoys_on_chain_times[0]) - datetime.fromtimestamp(data[tx_hash]['Block_Timestamp_Epoch'])).total_seconds())
                 data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Mean_Decoy_Time'] = sum(decoys_on_chain_times) / len(decoys_on_chain_times)
                 data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Median_Decoy_Time'] = int(median(decoys_on_chain_times))
-    import json
-    print(json.dumps(data[tx_hash], indent=4))
 
 
 def combine_files(Wallet_addr):
+    global data
     #  CSV HEADER -> "block, direction, unlocked, timestamp, amount, running balance, hash, payment ID, fee, destination, amount, index, note"
     with open("./cli_export_" + Wallet_addr + ".csv", "r") as fp:
         next(fp)  # Skip header of csv
@@ -287,7 +286,7 @@ def main():
     global data
     discover_wallet_directories("./Wallets/1")
     #try:
-    with Pool(processes=5, maxtasksperchild=10) as p:
+    with Pool(processes=2, maxtasksperchild=10) as p:
         print(p.map(enrich_data, data.keys()))
     # enrich_data(tx_hash)
     # except Exception as e:
