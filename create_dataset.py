@@ -4,12 +4,24 @@ import pickle
 import requests
 from datetime import datetime
 from statistics import median
-from multiprocessing import Pool
+
+'''
+Description: Once transactions have been exported from collect.sh this script will combine
+             the resulting six files, per wallet, into a central database. After the unique 
+             information is pulled from each of the files, an enrichment phase will start.
+             During enrichment, the script will contact a Monero block explorer and collect
+             interesting heuristics and history associated to the transaction. Lastly, the 
+             dataset will be serialized to disk in the current working directory.
+Usage: ./create_dataset.py
+Warning: DO NOT run this script with a remote node, there are a lot of blockchain lookups!
+Warning: Run your own monerod process and https://github.com/moneroexamples/onion-monero-blockchain-explorer
+'''
 
 
 data = {}  # Key = tx hash, val = dict(transaction metadata)
 NETWORK = "testnet"
-API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"
+API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Explorer
+API_URL = "http://127.0.0.1:8081/api"  # Local Explorer
 
 
 def enrich_data(tx_hash):
@@ -223,8 +235,8 @@ def combine_files(Wallet_addr):
                                 data[tx_hash]['Outputs']['Decoys_On_Chain'].append(Ring_Member)
                         #  Only collect 10 decoys found on chain because it gets too resource intensive when
                         #  calculating all the temporal features for every decoy's ring signatures
-                        if len(data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 10:
-                            break
+                        # if len(data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 10:
+                        #     break
 
     #  CSV HEADERS -> "Timestamp,Block_no,Tx_hash,Output_pub_key,Key_image,Ring_no/Ring_size"
     with open("./xmr_report_outgoing_txs_" + Wallet_addr + ".csv", "r") as fp:
@@ -285,12 +297,8 @@ def main():
 
     global data
     discover_wallet_directories("./Wallets/1")
-    #try:
-    with Pool(processes=2, maxtasksperchild=10) as p:
-        print(p.map(enrich_data, data.keys()))
-    # enrich_data(tx_hash)
-    # except Exception as e:
-    #     print(e)
+    for tx_hash in data.keys():
+        enrich_data(tx_hash)
 
     with open("data.pkl", "wb") as fp:
         pickle.dump(data, fp)
