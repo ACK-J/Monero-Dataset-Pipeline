@@ -394,6 +394,7 @@ def main():
     #  Error Checking
     if len(sys.argv) != 2:
         print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
+        exit(1)
     try:
         assert requests.get(API_URL + "/block/1").status_code == 200
     except requests.exceptions.ConnectionError as e:
