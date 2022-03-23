@@ -2,3 +2,6 @@ requests
 numpy
 pandas
 flatdict
+sklearn
+matplotlib
+seaborn

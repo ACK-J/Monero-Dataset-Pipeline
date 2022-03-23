@@ -368,12 +368,12 @@ def create_feature_set(database):
     model, flattens the dictionary and converts it to a dataframe. An
     accompanying labels dataframe is also created.
     :param database: Nested dictionary of Monero transaction metadata
-    :return: A pandas dataframe of the input data and labels
+    :return: A pandas dataframe of the input data and a list of labels
     """
     import pandas as pd
     from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
     feature_set = pd.DataFrame()
-    labels = pd.DataFrame()
+    labels = []
     #  Iterate through each tx hash
     for idx, tx_hash in enumerate(database.keys()):
         #  Get the transaction
@@ -384,8 +384,8 @@ def create_feature_set(database):
         transaction = CherryPicker(transaction).flatten(delim='.').get()
         #  add the transaction to the feature set dataframe
         feature_set = pd.concat([feature_set, pd.DataFrame(transaction, index=[idx])])
-        #  add the labels to the dataframe
-        labels = pd.concat([labels, pd.DataFrame(private_info, index=[idx])])
+        #  add the labels to the list
+        labels.append(private_info)
     #  Replace any Null values with -1
     return feature_set.fillna(-1), labels
 
@@ -403,6 +403,7 @@ def main():
 
     try:
         global data
+        print("Opening " + str(sys.argv[1]))
         discover_wallet_directories(sys.argv[1])
         for tx_hash in data.keys():
             enrich_data(tx_hash)
