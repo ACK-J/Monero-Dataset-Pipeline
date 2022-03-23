@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import pickle
 import requests
@@ -10,11 +11,18 @@ Description: Once transactions have been exported from collect.sh this script wi
              the resulting six files, per wallet, into a central database. After the unique 
              information is pulled from each of the files, an enrichment phase will start.
              During enrichment, the script will contact a Monero block explorer and collect
-             interesting heuristics and history associated to the transaction. Lastly, the 
-             dataset will be serialized to disk in the current working directory.
-Usage: ./create_dataset.py
+             interesting heuristics and history associated to the transaction. The dataset
+             will be serialized to disk in the current working directory. The next stage will
+             clean the dataset into only relevant features and serialize an X and y dataframe
+             which can be used for machine learning applications.
+Usage: ./create_dataset.py < Wallets Directory Path >
+
 Warning: DO NOT run this script with a remote node, there are a lot of blockchain lookups!
-Warning: Run your own monerod process and https://github.com/moneroexamples/onion-monero-blockchain-explorer
+Warning: Run your own monerod process and block explorer
+To run your own block explorer:
+    monerod --testnet                        https://github.com/monero-project/monero
+    xmrblocks --testnet --enable-json-api    https://github.com/moneroexamples/onion-monero-blockchain-explorer
+            
 '''
 
 
@@ -325,7 +333,7 @@ def clean_transaction(transaction):
     private_info = {}
     del transaction['Direction']
     del transaction['Block_Timestamp']
-    private_info['Amount'] = transaction['Amount']
+    private_info['Tx_Amount'] = transaction['Amount']
     del transaction['Amount']
     private_info['Wallet_Balance'] = transaction['Wallet_Balance']
     del transaction['Wallet_Balance']
@@ -342,8 +350,8 @@ def clean_transaction(transaction):
     del transaction['Output_Key_Img']
     private_info['Out_idx'] = transaction['Out_idx']
     del transaction['Out_idx']
-    private_info['Output_Number_Spent'] = transaction['Output_Number_Spent']
-    del transaction['Output_Number_Spent']  # TODO THIS WILL BREAK AFTER RECREATING THE DATASET (CHANGE THE NAME)
+    private_info['Wallet_Output_Number_Spent'] = transaction['Wallet_Output_Number_Spent']
+    del transaction['Wallet_Output_Number_Spent']
     private_info['Ring_no/Ring_size'] = transaction['Ring_no/Ring_size']
     del transaction['Ring_no/Ring_size']
     del transaction['Payment_ID']
@@ -378,26 +386,39 @@ def create_feature_set(database):
         feature_set = pd.concat([feature_set, pd.DataFrame(transaction, index=[idx])])
         #  add the labels to the dataframe
         labels = pd.concat([labels, pd.DataFrame(private_info, index=[idx])])
-    return feature_set, labels
+    #  Replace any Null values with -1
+    return feature_set.fillna(-1), labels
 
 
 def main():
-    global data
-    discover_wallet_directories("./Wallets/1")
-    for tx_hash in data.keys():
-        enrich_data(tx_hash)
+    #  Error Checking
+    if len(sys.argv) != 2:
+        print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
+    try:
+        assert requests.get(API_URL + "/block/1").status_code == 200
+    except requests.exceptions.ConnectionError as e:
+        print("Error: " + NETWORK + " block explorer located at " + API_URL + " refused connection!")
+        exit(1)
 
-    with open("data.pkl", "wb") as fp:
-        pickle.dump(data, fp)
+    try:
+        global data
+        discover_wallet_directories(sys.argv[1])
+        for tx_hash in data.keys():
+            enrich_data(tx_hash)
+        with open("data.pkl", "wb") as fp:
+            pickle.dump(data, fp)
 
-    with open("data.pkl", "rb") as fp:
-        data = pickle.load(fp)
-    X, y = create_feature_set(data)
+        with open("data.pkl", "rb") as fp:
+            data = pickle.load(fp)
+        X, y = create_feature_set(data)
 
-    with open("X.pkl", "wb") as fp:
-        pickle.dump(X, fp)
-    with open("y.pkl", "wb") as fp:
-        pickle.dump(y, fp)
+        with open("X.pkl", "wb") as fp:
+            pickle.dump(X, fp)
+        with open("y.pkl", "wb") as fp:
+            pickle.dump(y, fp)
+    except KeyboardInterrupt as e:
+        print("User stopped the script's execution!")
+        exit(1)
 
 
 if __name__ == '__main__':
