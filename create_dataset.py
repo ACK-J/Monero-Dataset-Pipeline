@@ -25,6 +25,11 @@ API_URL = "http://127.0.0.1:8081/api"  # Local Explorer
 
 
 def enrich_data(tx_hash):
+    """
+
+    :param tx_hash:
+    :return:
+    """
     print(tx_hash)
     global data
     tx_response = requests.get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]
@@ -74,11 +79,16 @@ def enrich_data(tx_hash):
                         time_delta = int((datetime.fromtimestamp(Ring_Member_Times[member_idx]) - datetime.fromtimestamp(Ring_Member_Times[member_idx - 1])).total_seconds())
                         Decoy['Time_Deltas_Between_Ring_Members'][str(member_idx - 1) + '_' + str(member_idx)] = time_delta
                         # Add temporal features
+                        #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
                         Decoy['Time_Deltas_Between_Ring_Members']['Total_Decoy_Time_Span'] = int((datetime.fromtimestamp(Ring_Member_Times[len(Ring_Member_Times) - 1]) - datetime.fromtimestamp(Ring_Member_Times[0])).total_seconds())
+                        #  Calculate the time between the newest ring in the signature to the block time of the transaction
                         Decoy['Time_Deltas_Between_Ring_Members']['Time_Delta_From_Newest_Ring_To_Block'] = int((datetime.fromtimestamp(data[tx_hash]['Block_Timestamp_Epoch']) - datetime.fromtimestamp(Ring_Member_Times[len(Ring_Member_Times) - 1])).total_seconds())
+                        #  Calculate the time between the oldest ring in the signature to the block time of the transaction
                         Decoy['Time_Deltas_Between_Ring_Members']['Time_Delta_From_Oldest_Ring_To_Block'] = int((datetime.fromtimestamp(data[tx_hash]['Block_Timestamp_Epoch']) - datetime.fromtimestamp(Ring_Member_Times[0])).total_seconds())
-                        Decoy['Time_Deltas_Between_Ring_Members']['Mean_Ring_Time'] = int(sum(Ring_Member_Times) / len(Ring_Member_Times))
-                        Decoy['Time_Deltas_Between_Ring_Members']['Median_Ring_Time'] = int(median(Ring_Member_Times))
+                        #  Calculate the mean of the ring time
+                        Decoy['Time_Deltas_Between_Ring_Members']['Mean_Ring_Time'] = int(sum(Ring_Member_Times) / len(Ring_Member_Times)) - Ring_Member_Times[0]
+                        #  Calculate the median of the ring time
+                        Decoy['Time_Deltas_Between_Ring_Members']['Median_Ring_Time'] = int(median(Ring_Member_Times)) - Ring_Member_Times[0]
 
     #  Add Input Information
     for input in tx_response['inputs']:
@@ -89,6 +99,8 @@ def enrich_data(tx_hash):
                 'Ring_Members': input['mixins']
             }
         )
+
+    # Calculate lengths
     data[tx_hash]['Num_Inputs'] = len(data[tx_hash]['Inputs'])
     data[tx_hash]['Num_Outputs'] = len(data[tx_hash]['Outputs']['Output_Data'])
     data[tx_hash]['Num_Decoys'] = len(data[tx_hash]['Outputs']['Decoys_On_Chain'])
@@ -109,11 +121,16 @@ def enrich_data(tx_hash):
                         data[tx_hash]['Inputs'][input_idx]['Time_Deltas_Between_Ring_Members'][str(ring_num-1) + '_' + str(ring_num)] = time_delta
             if len(ring_mem_times) > 1:
                 # Add temporal features
+                #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
                 data[tx_hash]['Inputs'][input_idx]['Total_Ring_Time_Span'] = int((datetime.fromtimestamp(ring_mem_times[len(ring_mem_times)-1]) - datetime.fromtimestamp(ring_mem_times[0])).total_seconds())
+                #  Calculate the time between the newest ring in the signature to the block time of the transaction
                 data[tx_hash]['Inputs'][input_idx]['Time_Delta_From_Newest_Ring_To_Block'] = int((datetime.fromtimestamp(data[tx_hash]['Block_Timestamp_Epoch']) - datetime.fromtimestamp(ring_mem_times[len(ring_mem_times)-1])).total_seconds())
+                #  Calculate the time between the oldest ring in the signature to the block time of the transaction
                 data[tx_hash]['Inputs'][input_idx]['Time_Delta_From_Oldest_Ring_To_Block'] = int((datetime.fromtimestamp(data[tx_hash]['Block_Timestamp_Epoch']) - datetime.fromtimestamp(ring_mem_times[0])).total_seconds())
-                data[tx_hash]['Inputs'][input_idx]['Mean_Ring_Time'] = int(sum(ring_mem_times) / len(ring_mem_times))
-                data[tx_hash]['Inputs'][input_idx]['Median_Ring_Time'] = int(median(ring_mem_times))
+                #  Calculate the mean of the ring time
+                data[tx_hash]['Inputs'][input_idx]['Mean_Ring_Time'] = int(sum(ring_mem_times) / len(ring_mem_times)) - ring_mem_times[0]
+                #  Calculate the median of the ring time
+                data[tx_hash]['Inputs'][input_idx]['Median_Ring_Time'] = int(median(ring_mem_times)) - ring_mem_times[0]
 
     #  Temporal features for decoys on chain
     data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain'] = {}
@@ -127,14 +144,24 @@ def enrich_data(tx_hash):
                 time_delta = int((datetime.fromtimestamp(decoys_on_chain_times[member_idx]) - datetime.fromtimestamp(decoys_on_chain_times[member_idx - 1])).total_seconds())
                 data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain'][str(member_idx-1) + '_' + str(member_idx)] = time_delta
                 # Add temporal features
+                #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
                 data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Total_Decoy_Time_Span'] = int((datetime.fromtimestamp(decoys_on_chain_times[len(decoys_on_chain_times)-1]) - datetime.fromtimestamp(decoys_on_chain_times[0])).total_seconds())
+                #  Calculate the time between the newest ring in the signature to the block time of the transaction
                 data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Time_Delta_From_Newest_Decoy_To_Block'] = int((datetime.fromtimestamp(decoys_on_chain_times[len(decoys_on_chain_times)-1]) - datetime.fromtimestamp(data[tx_hash]['Block_Timestamp_Epoch'])).total_seconds())
+                #  Calculate the time between the oldest ring in the signature to the block time of the transaction
                 data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Time_Delta_From_Oldest_Decoy_To_Block'] = int((datetime.fromtimestamp(decoys_on_chain_times[0]) - datetime.fromtimestamp(data[tx_hash]['Block_Timestamp_Epoch'])).total_seconds())
-                data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Mean_Decoy_Time'] = sum(decoys_on_chain_times) / len(decoys_on_chain_times)
-                data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Median_Decoy_Time'] = int(median(decoys_on_chain_times))
+                #  Calculate the mean of the ring time
+                data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Mean_Decoy_Time'] = sum(decoys_on_chain_times) / len(decoys_on_chain_times) - decoys_on_chain_times[0]
+                #  Calculate the median of the ring time
+                data[tx_hash]['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Median_Decoy_Time'] = int(median(decoys_on_chain_times)) - decoys_on_chain_times[0]
 
 
 def combine_files(Wallet_addr):
+    """
+
+    :param Wallet_addr:
+    :return:
+    """
     global data
     #  CSV HEADER -> "block, direction, unlocked, timestamp, amount, running balance, hash, payment ID, fee, destination, amount, index, note"
     with open("./cli_export_" + Wallet_addr + ".csv", "r") as fp:
@@ -183,9 +210,10 @@ def combine_files(Wallet_addr):
                 data[tx_hash]['Output_Pub_Key'] = xmr2csv_report_csv_values[8].strip()
                 data[tx_hash]['Output_Key_Img'] = xmr2csv_report_csv_values[9].strip()
                 data[tx_hash]['Out_idx'] = int(xmr2csv_report_csv_values[6].strip())
-                data[tx_hash]['Output_Number_Spent'] = int(xmr2csv_report_csv_values[10].strip())
+                data[tx_hash]['Wallet_Output_Number_Spent'] = int(xmr2csv_report_csv_values[10].strip())
                 #  Add Output Information
-                for output_idx, output in enumerate(requests.get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]['outputs']):
+                output_info = requests.get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]['outputs']
+                for output_idx, output in enumerate(output_info):
                     data[tx_hash]['Outputs']['Output_Data'].append({'Amount': output['amount'], 'Stealth_Address': output['public_key']})
 
                 #  Open the file that has the timestamp from when the data was collected
@@ -210,6 +238,7 @@ def combine_files(Wallet_addr):
                                 Ring_Member['Output_Pub_Key'] = ring_members_csv_values[3].strip()
                                 Ring_Member['Block_Number'] = int(ring_members_csv_values[1].strip())
                                 # Convert timestamp to epoch time before saving
+                                #  https://stackoverflow.com/questions/30468371/how-to-convert-python-timestamp-string-to-epoch
                                 p = "%Y-%m-%d %H:%M:%S"
                                 epoch = datetime(1970, 1, 1)
                                 ring_member_epoch_time = int((datetime.strptime(ring_members_csv_values[0].strip(), p) - epoch).total_seconds())
@@ -218,8 +247,6 @@ def combine_files(Wallet_addr):
                                 Ring_Member['Tx_Hash'] = ring_members_csv_values[2].strip()
                                 Ring_Member['Ring_no/Ring_size'] = ring_members_csv_values[5].strip()
                                 #  Find the relative age of the outputs public key on the chain compared to when xmr2csv was ran
-                                #  https://stackoverflow.com/questions/30468371/how-to-convert-python-timestamp-string-to-epoch
-
                                 #  The time from when the data was collected minus the decoy block timestamp
                                 Ring_Member['Ring_Member_Relative_Age'] = int((datetime.fromtimestamp(data[tx_hash]['xmr2csv_Data_Collection_Time']) - datetime.fromtimestamp(Ring_Member['Block_Timestamp'])).total_seconds())
 
@@ -248,6 +275,11 @@ def combine_files(Wallet_addr):
 
 
 def discover_wallet_directories(dir_to_search):
+    """
+
+    :param dir_to_search:
+    :return:
+    """
     # traverse root directory, and list directories as dirs and files as files
     unique_directories = []
     for root, dirs, files in os.walk(dir_to_search):
@@ -279,22 +311,77 @@ def discover_wallet_directories(dir_to_search):
         os.chdir(cwd)
 
 
+def clean_transaction(transaction):
+    """
+    A transaction from the original dataset contains information not
+    necessarily useful for training a machine learning model. This
+    information includes cryptographically random strings ( wallet
+    addresses, and private keys ) as well as human-readable strings.
+    This function will also strip any "deanonymized" features and
+    return them in a separate dictionary to be added to the labels.
+    :param transaction: A dictionary of transaction information
+    :return: A dictionary of labels associated to the inputted transaction
+    """
+    private_info = {}
+    del transaction['Direction']
+    del transaction['Block_Timestamp']
+    private_info['Amount'] = transaction['Amount']
+    del transaction['Amount']
+    private_info['Wallet_Balance'] = transaction['Wallet_Balance']
+    del transaction['Wallet_Balance']
+    del transaction['Destination_Address']
+    del transaction['Sender_Address']
+    del transaction['Network']
+    del transaction['Outputs']['Output_Data']
+    del transaction['Outputs']['Decoys_On_Chain']  # TODO NEED TO EXPAND UPON THIS
+    for input in transaction['Inputs']:
+        del input['Key_Image']
+        del input['Ring_Members']
+    del transaction['Tx_Public_Key']
+    del transaction['Output_Pub_Key']
+    del transaction['Output_Key_Img']
+    private_info['Out_idx'] = transaction['Out_idx']
+    del transaction['Out_idx']
+    private_info['Output_Number_Spent'] = transaction['Output_Number_Spent']
+    del transaction['Output_Number_Spent']  # TODO THIS WILL BREAK AFTER RECREATING THE DATASET (CHANGE THE NAME)
+    private_info['Ring_no/Ring_size'] = transaction['Ring_no/Ring_size']
+    del transaction['Ring_no/Ring_size']
+    del transaction['Payment_ID']
+    del transaction['Payment_ID8']
+    del transaction['Tx_Extra']  # TODO NEED TO USE THIS LATER ON
+    del transaction['Num_Decoys']  # TODO
+    return private_info
+
+
+def create_feature_set(database):
+    """
+    This function takes in a nested python dictionary dataset, removes
+    any entries that would not be a useful feature to a machine learning
+    model, flattens the dictionary and converts it to a dataframe. An
+    accompanying labels dataframe is also created.
+    :param database: Nested dictionary of Monero transaction metadata
+    :return: A pandas dataframe of the input data and labels
+    """
+    import pandas as pd
+    from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
+    feature_set = pd.DataFrame()
+    labels = pd.DataFrame()
+    #  Iterate through each tx hash
+    for idx, tx_hash in enumerate(database.keys()):
+        #  Get the transaction
+        transaction = database[tx_hash]
+        #  Pass the transaction ( by reference ) to be stripped of non-features and receive the labels back
+        private_info = clean_transaction(transaction)
+        #  flatten the transaction data so it can be input into a dataframe
+        transaction = CherryPicker(transaction).flatten(delim='.').get()
+        #  add the transaction to the feature set dataframe
+        feature_set = pd.concat([feature_set, pd.DataFrame(transaction, index=[idx])])
+        #  add the labels to the dataframe
+        labels = pd.concat([labels, pd.DataFrame(private_info, index=[idx])])
+    return feature_set, labels
+
+
 def main():
-    # https://stackoverflow.com/questions/23885147/how-do-i-use-line-profiler-from-robert-kern
-    # from line_profiler import LineProfiler
-    # with Pool(5) as p:
-    #     print(p.map(get_data, terms))
-    # discover_wallet_directories("./Wallets/1")
-    # lp = LineProfiler()
-    # # lp.add_function(combine_files)
-    # # lp_wrapper = lp(discover_wallet_directories)
-    # # lp_wrapper("./Wallets/1")
-    # lp_wrapper = lp(enrich_data)
-    # lp_wrapper()
-    # lp.print_stats()
-    # exit()
-
-
     global data
     discover_wallet_directories("./Wallets/1")
     for tx_hash in data.keys():
@@ -303,9 +390,14 @@ def main():
     with open("data.pkl", "wb") as fp:
         pickle.dump(data, fp)
 
-    # with open("data.pkl", "rb") as fp:
-    #     data = pickle.load(fp)
-    # pass
+    with open("data.pkl", "rb") as fp:
+        data = pickle.load(fp)
+    X, y = create_feature_set(data)
+
+    with open("X.pkl", "wb") as fp:
+        pickle.dump(X, fp)
+    with open("y.pkl", "wb") as fp:
+        pickle.dump(y, fp)
 
 
 if __name__ == '__main__':
