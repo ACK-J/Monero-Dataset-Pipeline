@@ -172,6 +172,7 @@ def combine_files(Wallet_addr):
     """
     global data
     #  CSV HEADER -> "block, direction, unlocked, timestamp, amount, running balance, hash, payment ID, fee, destination, amount, index, note"
+    #                   0        1          2         3         4           5           6        7       8         9        10      11    12
     with open("./cli_export_" + Wallet_addr + ".csv", "r") as fp:
         next(fp)  # Skip header of csv
         for line in fp:
@@ -195,24 +196,27 @@ def combine_files(Wallet_addr):
 
                 transaction['Outputs'] = {}
                 transaction['Outputs']['Output_Data'] = list()
+                transaction['Outputs']['Decoys_On_Chain'] = []
                 transaction['Inputs'] = []
 
+                #  Add the time that xmr2csv was run
                 with open("./xmr2csv_start_time_" + Wallet_addr + ".csv", "r") as fp2:
                     for line2 in fp2:
                         transaction['xmr2csv_Data_Collection_Time'] = int(line2.strip())
                         break
                 #  Check if the hash is a key in the dataset
-                if cli_csv_values[6].strip() not in data:
+                if cli_csv_values[6].strip() not in data.keys():
                     data[cli_csv_values[6].strip()] = transaction
 
     #  CSV HEADER -> "Timestamp,Block_no,Tx_hash,Tx_public_key,Tx_version,Payment_id,Out_idx,Amount,Output_pub_key,Output_key_img,Output_spend"
+    #                    0         1        2           3           4          5        6       7         8               9             10
     with open("./xmr_report_" + Wallet_addr + ".csv", "r") as fp:
         next(fp)  # Skip header of csv
         for line in fp:
             xmr2csv_report_csv_values = line.split(",")
             tx_hash = xmr2csv_report_csv_values[2].strip()
             #  Check if the tx hash is in the dataset yet
-            if xmr2csv_report_csv_values[2].strip() in data:
+            if tx_hash in data.keys():
                 data[tx_hash]['Tx_Version'] = xmr2csv_report_csv_values[4].strip()
                 data[tx_hash]['Tx_Public_Key'] = xmr2csv_report_csv_values[3].strip()
                 data[tx_hash]['Output_Pub_Key'] = xmr2csv_report_csv_values[8].strip()
@@ -231,9 +235,8 @@ def combine_files(Wallet_addr):
                         break
 
                 #  Search through the export of all ring member occurrences on chain to see if our output public key was used
-                data[tx_hash]['Outputs']['Decoys_On_Chain'] = []
-
-                #  CSV HEADERS -> "Timestamp,Block_no,Decoy_Tx_hash,Output_pub_key,Key_image,ring_no/ring_size"
+                #  CSV HEADERS -> "Timestamp, Block_no, Decoy_Tx_hash, Output_pub_key, Key_image, ring_no/ring_size"
+                #                      0          1            2               3            4            5
                 with open("./xmr_report_ring_members_" + Wallet_addr + ".csv", "r") as fp2:
                     next(fp2)  # Skip header of csv
                     for line2 in fp2:
@@ -241,7 +244,7 @@ def combine_files(Wallet_addr):
                         Ring_Member = {}
                         #  Iterate through each output from the transaction
                         for tx_output in data[tx_hash]['Outputs']['Output_Data']:
-                            #  Make sure the ring members public key matches an output in this transaction
+                            #  Check if the ring members public key matches an output in this transaction
                             if tx_output['Stealth_Address'] == ring_members_csv_values[3].strip():
                                 Ring_Member['Output_Pub_Key'] = ring_members_csv_values[3].strip()
                                 Ring_Member['Block_Number'] = int(ring_members_csv_values[1].strip())
@@ -273,12 +276,13 @@ def combine_files(Wallet_addr):
                         # if len(data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 10:
                         #     break
 
-    #  CSV HEADERS -> "Timestamp,Block_no,Tx_hash,Output_pub_key,Key_image,Ring_no/Ring_size"
+    #  CSV HEADERS -> "Timestamp, Block_no, Tx_hash, Output_pub_key, Key_image, Ring_no/Ring_size"
+    #                      0          1        2            3            4              5
     with open("./xmr_report_outgoing_txs_" + Wallet_addr + ".csv", "r") as fp:
         next(fp)  # Skip header of csv
         for line in fp:
             xmr2csv_outgoing_csv_values = line.split(",")
-            if xmr2csv_outgoing_csv_values[2].strip() in data:
+            if xmr2csv_outgoing_csv_values[2].strip() in data.keys():
                 data[xmr2csv_outgoing_csv_values[2].strip()]['Ring_no/Ring_size'] = xmr2csv_outgoing_csv_values[5].strip()
 
 
