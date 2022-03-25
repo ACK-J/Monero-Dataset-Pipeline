@@ -3,6 +3,7 @@ import sys
 import time
 import pickle
 import requests
+from tqdm import tqdm
 from datetime import datetime
 from statistics import median
 
@@ -16,6 +17,8 @@ Description: Once transactions have been exported from collect.sh this script wi
              clean the dataset into only relevant features and serialize an X and y dataframe
              which can be used for machine learning applications.
 Usage: ./create_dataset.py < Wallets Directory Path >
+Date: 3/23/2022
+Author: ACK-J
 
 Warning: DO NOT run this script with a remote node, there are a lot of blockchain lookups!
 Warning: Run your own monerod process and block explorer
@@ -24,6 +27,9 @@ To run your own block explorer:
     xmrblocks --testnet --enable-json-api    https://github.com/moneroexamples/onion-monero-blockchain-explorer
             
 '''
+
+# TODO MULTIPROCESSING have enrich data return a object and append it to the global variable
+# TODO TO speed up collect.sh fork the xmr2csv process
 
 
 data = {}  # Key = tx hash, val = dict(transaction metadata)
@@ -261,7 +267,8 @@ def combine_files(Wallet_addr):
                                 #  The time from when the data was collected minus the decoy block timestamp
                                 Ring_Member['Ring_Member_Relative_Age'] = int((datetime.fromtimestamp(data[tx_hash]['xmr2csv_Data_Collection_Time']) - datetime.fromtimestamp(Ring_Member['Block_Timestamp'])).total_seconds())
 
-                                #  CSV HEADERS -> "Output_pub_key,Frequency,Ring_size"
+                                #  CSV HEADERS -> "Output_pub_key, Frequency, Ring_size"
+                                #                         0            1           2
                                 with open("./xmr_report_ring_members_freq_" + Wallet_addr + ".csv", "r") as fp3:
                                     next(fp3)  # Skip header of csv
                                     for line3 in fp3:
@@ -303,7 +310,7 @@ def discover_wallet_directories(dir_to_search):
                     unique_directories.append(root)
     cwd = os.getcwd()  # Set a starting directory
     #  Go through each directory that has csv files in it
-    for idx, dir in enumerate(unique_directories):
+    for idx, dir in tqdm(enumerate(unique_directories), desc="Combining files…"):
         os.chdir(dir)
         Wallet_addrs = []
         for root, dirs, files in os.walk("."):
@@ -378,18 +385,27 @@ def create_feature_set(database):
     from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
     feature_set = pd.DataFrame()
     labels = []
+    BadSamples = []
     #  Iterate through each tx hash
     for idx, tx_hash in enumerate(database.keys()):
         #  Get the transaction
         transaction = database[tx_hash]
         #  Pass the transaction ( by reference ) to be stripped of non-features and receive the labels back
-        private_info = clean_transaction(transaction)
+        try:
+            private_info = clean_transaction(transaction)
+        except Exception as e:
+            print(idx, tx_hash)
+            print(transaction)
+            BadSamples.append(tx_hash)
+            continue
         #  flatten the transaction data so it can be input into a dataframe
         transaction = CherryPicker(transaction).flatten(delim='.').get()
         #  add the transaction to the feature set dataframe
         feature_set = pd.concat([feature_set, pd.DataFrame(transaction, index=[idx])])
         #  add the labels to the list
         labels.append(private_info)
+    for bad in BadSamples:
+        del database[bad]
     #  Replace any Null values with -1
     return feature_set.fillna(-1), labels
 
@@ -401,29 +417,40 @@ def main():
         exit(1)
     try:
         assert requests.get(API_URL + "/block/1").status_code == 200
+    #  Check to see if the API URL given can be connected to
     except requests.exceptions.ConnectionError as e:
         print("Error: " + NETWORK + " block explorer located at " + API_URL + " refused connection!")
         exit(1)
 
     try:
-        global data
-        print("Opening " + str(sys.argv[1]))
-        discover_wallet_directories(sys.argv[1])
-        for tx_hash in data.keys():
-            enrich_data(tx_hash)
-        with open("data.pkl", "wb") as fp:
-            pickle.dump(data, fp)
-
+        # global data
+        # print("Opening " + str(sys.argv[1]))
+        # #  Find where the wallets are stored and combine the exported files
+        # discover_wallet_directories(sys.argv[1])
+        #
+        # #  Enrich each transaction
+        # for tx_hash in tqdm (data.keys(), desc="Enriching…"):
+        #     enrich_data(tx_hash)
+        #
+        # #  Save the raw database to disk
+        # with open("data.pkl", "wb") as fp:
+        #     pickle.dump(data, fp)
         with open("data.pkl", "rb") as fp:
             data = pickle.load(fp)
-        X, y = create_feature_set(data)
 
+        #  Feature selection on raw dataset
+        X, y = create_feature_set(data)
+        X.reset_index(drop=True, inplace=True)
+
+        #  Save data and labels to disk for future AI training
         with open("X.pkl", "wb") as fp:
             pickle.dump(X, fp)
         with open("y.pkl", "wb") as fp:
             pickle.dump(y, fp)
+
+    # Gracefully exits if user hits CTRL + C
     except KeyboardInterrupt as e:
-        print("User stopped the script's execution!")
+        print("Error: User stopped the script's execution!")
         exit(1)
 
 

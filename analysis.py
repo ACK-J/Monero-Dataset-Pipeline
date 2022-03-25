@@ -16,17 +16,37 @@ TEST_SIZE = 0.2
 
 
 def undersample(X, y):
+    X.reset_index(drop=True, inplace=True)
     labels_distribution = Counter(y)
-    min_occurrences = None
-    for label in labels_distribution:
-        num_occurrences = labels_distribution[label]
-        if min_occurrences is None:
-            min_occurrences = num_occurrences
-        elif num_occurrences < min_occurrences:
-            min_occurrences = num_occurrences
+    min_occurrences = labels_distribution.most_common()[len(labels_distribution)-1][1]
+    #max_occurrences = labels_distribution.most_common(1)[0][1]
+    occurrences = {}
+    need_to_delete_y = []
+    for i in range(len(labels_distribution)):
+        occurrences[i+1] = 0
+    for idx, val in enumerate(y):
+        if occurrences[val] < min_occurrences:
+            occurrences[val] = occurrences[val] + 1
+        else:
+            X.drop(idx, inplace=True)
+            need_to_delete_y.append(idx)
+    labels = [i for j, i in enumerate(y) if j not in need_to_delete_y]
+    X.reset_index(drop=True, inplace=True)
+    return X, labels
 
-
-
+"""
+    bad_y_values = []
+    for label_occur in labels_distribution.most_common():
+        for i in range(label_occur[1] - min_occurrences):
+            for idx, each in enumerate(y):
+                if each == label_occur[0]:
+                    bad_y_values.append(idx)
+                    X.drop(idx, inplace=True)
+                    X.reset_index(drop=True, inplace=True)
+                    break
+    for idx in bad_y_values:
+        del y[idx]
+"""
 def load_data(TEST_SIZE):
     with open("X.pkl", "rb") as fp:
         X = pickle.load(fp)
@@ -38,8 +58,13 @@ def load_data(TEST_SIZE):
     for record in y:
         true_spend.append(int(record['Ring_no/Ring_size'].split("/")[0]))
 
+    X.drop(['Time_Of_Enrichment'], axis='columns', inplace=True)
+    X.drop(['Block_Number'], axis='columns', inplace=True)
+    X.drop(['Block_Timestamp_Epoch'], axis='columns', inplace=True)
+    X, y = undersample(X, true_spend)
+
     #  Split the data up traditionally into 80% training and 20% training
-    X_train, X_test, y_train, y_test = train_test_split(X, true_spend, test_size=TEST_SIZE)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE)
     return X_train, X_test, y_train, y_test
 
 
@@ -52,10 +77,9 @@ def main():
     test_accuracy = model.score(X_test, y_test)
     print("Test Accuracy:", test_accuracy)
 
-
     print("Model feature importance:")
     for idx, importance in enumerate(model.feature_importances_, start=0):
-        if importance >= 0.05:
+        if importance >= 0.01:
             print(GREEN + "{:20}\t{:.10f}".format(X_train.columns[idx], importance) + END)
         else:
             print("{:20}\t{:.10f}".format(X_train.columns[idx], importance))
