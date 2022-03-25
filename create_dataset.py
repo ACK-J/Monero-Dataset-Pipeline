@@ -423,18 +423,18 @@ def main():
         exit(1)
 
     try:
-        # global data
-        # print("Opening " + str(sys.argv[1]))
-        # #  Find where the wallets are stored and combine the exported files
-        # discover_wallet_directories(sys.argv[1])
-        #
-        # #  Enrich each transaction
-        # for tx_hash in tqdm (data.keys(), desc="Enriching…"):
-        #     enrich_data(tx_hash)
-        #
-        # #  Save the raw database to disk
-        # with open("data.pkl", "wb") as fp:
-        #     pickle.dump(data, fp)
+        global data
+        print("Opening " + str(sys.argv[1]))
+        #  Find where the wallets are stored and combine the exported files
+        discover_wallet_directories(sys.argv[1])
+
+        #  Enrich each transaction
+        for tx_hash in tqdm (data.keys(), desc="Enriching…"):
+            enrich_data(tx_hash)
+
+        #  Save the raw database to disk
+        with open("data.pkl", "wb") as fp:
+            pickle.dump(data, fp)
         with open("data.pkl", "rb") as fp:
             data = pickle.load(fp)
 

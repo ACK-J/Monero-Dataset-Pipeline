@@ -34,19 +34,7 @@ def undersample(X, y):
     X.reset_index(drop=True, inplace=True)
     return X, labels
 
-"""
-    bad_y_values = []
-    for label_occur in labels_distribution.most_common():
-        for i in range(label_occur[1] - min_occurrences):
-            for idx, each in enumerate(y):
-                if each == label_occur[0]:
-                    bad_y_values.append(idx)
-                    X.drop(idx, inplace=True)
-                    X.reset_index(drop=True, inplace=True)
-                    break
-    for idx in bad_y_values:
-        del y[idx]
-"""
+
 def load_data(TEST_SIZE):
     with open("X.pkl", "rb") as fp:
         X = pickle.load(fp)
