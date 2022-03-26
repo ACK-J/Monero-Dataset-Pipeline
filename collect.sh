@@ -124,8 +124,5 @@ done < <(find . -mindepth 2 -type f -name '*.txt' | sed -r 's|/[^/]+$||' | sort 
 echo;echo;echo;
 echo -en '\033[34mStarting multiprocessing of xmr2csv exports... \033[0m';echo;
 num_processors=$(nproc --all)
+# https://adamtheautomator.com/how-to-speed-up-bash-scripts-with-multithreading-and-gnu-parallel/
 cat "$parent_dir"/xmr2csv_commands.txt | parallel --bar --jobs "$num_processors" {}
-
-
-
-
