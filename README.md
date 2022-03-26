@@ -35,6 +35,12 @@ for i in range(100000):
 		fp.write(str(x) + "\n")
 ```
 
+# Problem Solving
+```
+#  If collect.sh throws the error: Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached
+mdb_stat -rr ~/.bitmonero/lmdb/
+```
+
 # Testnet Nodes
 ```
 testnet.xmr-tw.org:28081
