@@ -20,6 +20,18 @@ if [[ "$NETWORK" == "stagenet" ]];then LOCAL_RPC_PORT="38088"; else LOCAL_RPC_PO
 
 parent_dir=$(pwd)
 
+#  Check to see if the xmr2csv_commands file exists and if it does does ask the user to delete it before preceding
+if [ -f "${parent_dir}/xmr2csv_commands.txt" ];then
+  while true; do
+    read -p "xmr2csv_commands.txt exists from a previous run. Would you like to proceed with the deletion? " answer
+    case $answer in
+      [Yy]* ) rm -f "${parent_dir}"/xmr2csv_commands.txt; break;;
+      [Nn]* ) break;;
+      * ) echo "Please answer yes or no.";;
+    esac
+  done
+fi
+
 while read dir; do  # Read in all directories that contain a .txt file in the current directory
   cd "$dir" || exit
   echo "$dir"
@@ -53,7 +65,7 @@ EOL
     date
 
     #  Check if there are any transactions ( if len() = 1 then its just the csv header)
-    if [[ "$(wc -l < cli_export_"$walletAddr".csv)" -ne "1" ]];then
+    if [[ $(wc -l < cli_export_"$walletAddr".csv) -gt 1 ]];then
       #  Get the minimum block height by sorting the blocks in exported transaction file from the cli
       min_block_height="$(cut -f 1 -d ',' < cli_export_"$walletAddr".csv | awk '{print $1}' | sort -u | head -n 1)"
 
@@ -69,7 +81,7 @@ EOL
       monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT --wallet-file "$walletName" --password '' --$NETWORK --disable-rpc-login &
 
       echo -en '\033[34mWaiting... \033[0m';echo;
-      sleep 5 # Give the RPC server time to spin up
+      sleep 8 # Give the RPC server time to spin up
 
       #  Query the monero-wallet-rpc process and collect the view key
       view_key=$(curl http://127.0.0.1:$LOCAL_RPC_PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
@@ -99,13 +111,15 @@ EOL
       echo
       #  Save the epoch time of when the scan started since Decoy_Output_Ring_Member_Frequency will depend on it
       date +%s > xmr2csv_start_time_"$walletAddr".csv
-      #  Run xmr2csv using all the collected values and save the command to a text file to be run in parallel later on
+      #  Make xmr2csv command using all the collected values and save the command to a text file to be run in parallel later on
       echo xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --"$NETWORK" --start-height "$min_block_height" --ring-members --out-csv-file "$working_dir"/xmr_report_"$walletAddr".csv --out-csv-file2 "$working_dir"/xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 "$working_dir"/xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 "$working_dir"/xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 "$working_dir"/xmr_report_outgoing_txs_"$walletAddr".csv >> "$parent_dir"/xmr2csv_commands.txt
+      echo -en "\033[34mXMR2CSV command constructed and saved to ${parent_dir}/xmr2csv_commands.txt\033[0m";echo;
     fi # End error check
 
   done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
   cd - || exit
-done < <(find . -mindepth 2 -type f -name '*.txt' | sed -r 's|/[^/]+$||' | sort -u | grep -v "venv") #  Find wallet directories that contain a .txt file also remove any python venv libraries
+#  Find wallet directories that contain a .txt file also remove any python venv libraries
+done < <(find . -mindepth 2 -type f -name '*.txt' | sed -r 's|/[^/]+$||' | sort -u | grep -v "venv")
 
 echo;echo;echo;
 echo -en '\033[34mStarting multiprocessing of xmr2csv exports... \033[0m';echo;
