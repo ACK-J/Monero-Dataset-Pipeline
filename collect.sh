@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Requirements: jq and expect
+# Requirements: jq, parallel and expect
 # Before running this script first compile and run
 #               "./monerod --testnet"       https://github.com/monero-project/monero#compiling-monero-from-source
 # Before running this script first compile xmr2csv from https://github.com/moneroexamples/transactions-export
