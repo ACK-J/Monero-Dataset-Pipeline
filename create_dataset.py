@@ -336,6 +336,7 @@ def discover_wallet_directories(dir_to_search):
                     if len(Wallet_addrs) == 2:
                         break
         chdir(cwd)
+    chdir(cwd)
 
     del Wallet_addrs  # Not needed anymore
     # Multiprocess combining the 6 files for each wallet
