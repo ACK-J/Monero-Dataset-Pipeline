@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Requirements: jq and expect
+# Requirements: jq, parallel and expect
 # Before running this script first compile and run
 #               "./monerod --testnet"       https://github.com/monero-project/monero#compiling-monero-from-source
 # Before running this script first compile xmr2csv from https://github.com/moneroexamples/transactions-export
@@ -118,14 +118,11 @@ EOL
 
   done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
   cd - || exit
-#  Find wallet directories that contain a .txt file also remove any python venv libraries
-done < <(find . -mindepth 2 -type f -name '*.txt' | sed -r 's|/[^/]+$||' | sort -u | grep -v "venv")
+#  Find wallet directories that contain a .keys file and only get the parent dirs
+done < <(find . -mindepth 2 -type f -name '*.keys' | sed -r 's|/[^/]+$||' | sort -u )
 
 echo;echo;echo;
 echo -en '\033[34mStarting multiprocessing of xmr2csv exports... \033[0m';echo;
 num_processors=$(nproc --all)
+# https://adamtheautomator.com/how-to-speed-up-bash-scripts-with-multithreading-and-gnu-parallel/
 cat "$parent_dir"/xmr2csv_commands.txt | parallel --bar --jobs "$num_processors" {}
-
-
-
-

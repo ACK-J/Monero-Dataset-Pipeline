@@ -6,7 +6,7 @@ A script which will automate the creation of monero wallets and send transaction
 - Add machine sshkey to github
 ```
 sudo apt update
-sudo apt install jq expect python3 -y
+sudo apt install jq expect parallel python3 -y
 sudo apt install python3-pip -y
 pip3 install numpy
 cd ~ && wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2
@@ -22,6 +22,9 @@ rescan_bc soft
 # Check how many terminal tabs are open
 `ps --ppid $(pgrep xfce4-terminal)  | wc -l`
 
+# During collect.sh running check on progress
+`find ./ -iname *.csv | cut -d '/' -f 2 | sort -u`
+
 # After Running ./collect Gather the Ring Positions
 `find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
 
@@ -33,6 +36,12 @@ for i in range(100000):
 	x = int(exp(np.random.gamma(19.28, 1.0/1.61, 1))) + 1200
 	with open("gamma.txt","a") as fp:
 		fp.write(str(x) + "\n")
+```
+
+# Problem Solving
+```
+#  If collect.sh throws the error: Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached
+mdb_stat -rr ~/.bitmonero/lmdb/
 ```
 
 # Testnet Nodes
