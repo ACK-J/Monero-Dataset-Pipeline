@@ -1,13 +1,13 @@
-import os
-import sys
-import time
 import pickle
-import requests
+from sys import argv
+from time import time
 from tqdm import tqdm
+from requests import get
 from datetime import datetime
-from functools import partial
 from statistics import median
+from os import walk, getcwd, chdir
 from multiprocessing import Pool, cpu_count
+from requests.exceptions import ConnectionError
 
 '''
 Description: Once transactions have been exported from collect.sh this script will combine
@@ -30,10 +30,8 @@ To run your own block explorer:
             
 '''
 
-# TODO MULTIPROCESSING have enrich data return a object and append it to the global variable
-
-
 data = {}  # Key = tx hash, val = dict(transaction metadata)
+NUM_PROCESSES = cpu_count()  # Set the number of processes for multiprocessing
 NETWORK = "testnet"
 API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
 API_URL = "http://127.0.0.1:8081/api"  # Local Monero Block Explorer
@@ -48,16 +46,16 @@ def enrich_data(tx_dict_item):
     tx_hash = tx_dict_item[0]
     transaction_entry = tx_dict_item[1]
 
-    tx_response = requests.get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]
-    block_response = requests.get(API_URL + "/block/" + str(tx_response["block_height"])).json()["data"]
-    previous_block_response = requests.get(API_URL + "/block/" + str(int(tx_response["block_height"]) - 1)).json()["data"]
+    tx_response = get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]
+    block_response = get(API_URL + "/block/" + str(tx_response["block_height"])).json()["data"]
+    previous_block_response = get(API_URL + "/block/" + str(int(tx_response["block_height"]) - 1)).json()["data"]
     transaction_entry['Tx_Size'] = tx_response["tx_size"]
     # Check if the fee is missing
     if 'Tx_Fee' not in transaction_entry.keys():
         transaction_entry['Tx_Fee'] = float(tx_response['tx_fee'] * 0.000000000001) #  Converted from piconero to monero
     transaction_entry['Tx_Fee_Per_Byte'] = float(transaction_entry['Tx_Fee']) / int(transaction_entry['Tx_Size'])
     transaction_entry['Num_Confirmations'] = tx_response["confirmations"]
-    transaction_entry['Time_Of_Enrichment'] = int(time.time())
+    transaction_entry['Time_Of_Enrichment'] = int(time())
     if tx_response["coinbase"] == "false":
         transaction_entry['Is_Coinbase_Tx'] = False
     elif tx_response["coinbase"] == "true":
@@ -78,7 +76,7 @@ def enrich_data(tx_dict_item):
     for Decoy in transaction_entry['Outputs']['Decoys_On_Chain']:
         #  Add Temporal Features for the decoy ( This takes up a ton of time )
         #  Retrieve the transaction information about the decoy ring signatures
-        decoy_tx_response = requests.get(API_URL + "/transaction/" + str(Decoy['Tx_Hash'])).json()["data"]
+        decoy_tx_response = get(API_URL + "/transaction/" + str(Decoy['Tx_Hash'])).json()["data"]
         #  Iterate through each input
         for decoy_input in decoy_tx_response['inputs']:
             #  Create an entry for the temporal data
@@ -89,7 +87,7 @@ def enrich_data(tx_dict_item):
                 Ring_Member_Times = []
                 #  Iterate through each mixin, add it to the list and calculate the time deltas
                 for member_idx, each_member in enumerate(decoy_input['mixins']):
-                    Ring_Member_Times.append(requests.get(API_URL + "/block/" + str(each_member['block_no'])).json()['data']['timestamp'])
+                    Ring_Member_Times.append(get(API_URL + "/block/" + str(each_member['block_no'])).json()['data']['timestamp'])
                     #  If the list has at least 2 items
                     if len(Ring_Member_Times) > 1:
                         time_delta = int((datetime.fromtimestamp(Ring_Member_Times[member_idx]) - datetime.fromtimestamp(Ring_Member_Times[member_idx - 1])).total_seconds())
@@ -130,7 +128,7 @@ def enrich_data(tx_dict_item):
             ring_mem_times = []
             if len(each_input['Ring_Members']) != 0:
                 for ring_num, ring_mem in enumerate(each_input['Ring_Members']):
-                    ring_mem_times.append(requests.get(API_URL + "/block/" + str(ring_mem['block_no'])).json()['data']['timestamp'])
+                    ring_mem_times.append(get(API_URL + "/block/" + str(ring_mem['block_no'])).json()['data']['timestamp'])
                     #  If the list has at least 2 items
                     if len(ring_mem_times) > 1:
                         time_delta = int((datetime.fromtimestamp(ring_mem_times[ring_num]) - datetime.fromtimestamp(ring_mem_times[ring_num - 1])).total_seconds())
@@ -154,7 +152,7 @@ def enrich_data(tx_dict_item):
         #  A place to store the block times of each ring member
         decoys_on_chain_times = []
         for member_idx, each_member in enumerate(transaction_entry['Outputs']['Decoys_On_Chain']):
-            decoys_on_chain_times.append(requests.get(API_URL + "/block/" + str(each_member['Block_Number'])).json()['data']['timestamp'])
+            decoys_on_chain_times.append(get(API_URL + "/block/" + str(each_member['Block_Number'])).json()['data']['timestamp'])
             #  If the list has at least 2 items
             if len(decoys_on_chain_times) > 1:
                 time_delta = int((datetime.fromtimestamp(decoys_on_chain_times[member_idx]) - datetime.fromtimestamp(decoys_on_chain_times[member_idx - 1])).total_seconds())
@@ -237,7 +235,7 @@ def combine_files(Wallet_info):
                 wallet_tx_data[tx_hash]['Out_idx'] = int(xmr2csv_report_csv_values[6].strip())
                 wallet_tx_data[tx_hash]['Wallet_Output_Number_Spent'] = int(xmr2csv_report_csv_values[10].strip())
                 #  Add Output Information
-                output_info = requests.get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]['outputs']
+                output_info = get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]['outputs']
                 for output_idx, output in enumerate(output_info):
                     wallet_tx_data[tx_hash]['Outputs']['Output_Data'].append({'Amount': output['amount'], 'Stealth_Address': output['public_key']})
 
@@ -310,22 +308,22 @@ def discover_wallet_directories(dir_to_search):
     """
     # traverse root directory, and list directories as dirs and files as files
     unique_directories = []
-    for root, dirs, files in os.walk(dir_to_search):
+    for root, dirs, files in walk(dir_to_search):
         for name in files:
             #  Find all csv files
             if name.lower().endswith(".csv"):
                 #  Find all the unique folders holding csv files
                 if root not in unique_directories:
                     unique_directories.append(root)
-    cwd = os.getcwd()  # Set a starting directory
+    cwd = getcwd()  # Set a starting directory
 
     Wallet_addrs = []
     Wallet_info = []
     #  Go through each directory that has csv files in it
     for idx, dir in tqdm(enumerate(unique_directories), desc="Enumerating wallet files…", total=len(unique_directories), colour='blue'):
-        os.chdir(dir)
+        chdir(dir)
         #  Iterate over the files in the directory
-        for root, dirs, files in os.walk("."):
+        for root, dirs, files in walk("."):
             for name in files:  # Get the file name
                 #  Get each csv file
                 if name.lower().endswith(".csv"):
@@ -337,12 +335,12 @@ def discover_wallet_directories(dir_to_search):
                     #  Dont keep looking if the two wallet addresses are already found
                     if len(Wallet_addrs) == 2:
                         break
-        os.chdir(cwd)
+        chdir(cwd)
 
     del Wallet_addrs  # Not needed anymore
     # Multiprocess combining the 6 files for each wallet
     global data
-    pool = Pool(processes=cpu_count())
+    pool = Pool(processes=NUM_PROCESSES)
     for wallet_tx_data in tqdm(pool.imap_unordered(func=combine_files, iterable=Wallet_info), desc="Multiprocessing combining exported transactions…", total=len(Wallet_info), colour='blue'):
         for tx_hash, tx_data in wallet_tx_data.items():
             data[tx_hash] = tx_data
@@ -430,26 +428,26 @@ def create_feature_set(database):
 
 def main():
     #  Error Checking
-    if len(sys.argv) != 2:
+    if len(argv) != 2:
         print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
         exit(1)
     try:
-        assert requests.get(API_URL + "/block/1").status_code == 200
+        assert get(API_URL + "/block/1").status_code == 200
     #  Check to see if the API URL given can be connected to
-    except requests.exceptions.ConnectionError as e:
+    except ConnectionError as e:
         print("Error: " + NETWORK + " block explorer located at " + API_URL + " refused connection!")
         exit(1)
 
     try:
         global data
-        print("Opening " + str(sys.argv[1]) + "\n")
+        print("Opening " + str(argv[1]) + "\n")
         #  Find where the wallets are stored and combine the exported files
-        discover_wallet_directories(sys.argv[1])
+        discover_wallet_directories(argv[1])
 
         #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
         #  https://thebinarynotes.com/python-multiprocessing/
         #  https://docs.python.org/3/library/multiprocessing.html
-        pool = Pool(processes=cpu_count())
+        pool = Pool(processes=NUM_PROCESSES)
         for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing enriching transaction data…", total=len(data.items()), colour='blue'):
             tx_hash, transaction_entry = result[0], result[1]
             data[tx_hash] = transaction_entry
