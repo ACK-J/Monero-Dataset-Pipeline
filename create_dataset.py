@@ -3,6 +3,7 @@ from sys import argv
 from time import time
 from tqdm import tqdm
 from requests import get
+from os.path import exists
 from datetime import datetime
 from statistics import median
 from os import walk, getcwd, chdir
@@ -183,119 +184,129 @@ def combine_files(Wallet_info):
     #  CSV HEADER -> "block, direction, unlocked, timestamp, amount, running balance, hash, payment ID, fee, destination, amount, index, note"
     #                   0        1          2         3         4           5           6        7       8         9        10      11    12
     wallet_tx_data = {}
-    with open(Wallet_dir + "/cli_export_" + Wallet_addr + ".csv", "r") as fp:
-        next(fp)  # Skip header of csv
-        for line in fp:
-            cli_csv_values = line.split(",")
-            if cli_csv_values[1].strip() == "out":  # Only add outgoing transactions to the dataset
-                #  Check if the hash is a key in the dataset
-                if cli_csv_values[6].strip() not in wallet_tx_data.keys():
-                    transaction = {}
-                    transaction['Block_Number'] = int(cli_csv_values[0].strip())
-                    transaction['Direction'] = cli_csv_values[1].strip()
-                    transaction['Block_Timestamp'] = cli_csv_values[3].strip()
-                    # Convert timestamp to epoch time
-                    p = "%Y-%m-%d %H:%M:%S"
-                    epoch = datetime(1970, 1, 1)
-                    transaction['Block_Timestamp_Epoch'] = int((datetime.strptime(transaction['Block_Timestamp'].strip(), p) - epoch).total_seconds())
 
-                    transaction['Amount'] = float(cli_csv_values[4].strip())
-                    transaction['Wallet_Balance'] = float(cli_csv_values[5].strip())
-                    transaction['Tx_Fee'] = float(cli_csv_values[8].strip())
-                    transaction['Destination_Address'] = cli_csv_values[9].strip()
-                    transaction['Sender_Address'] = Wallet_addr
-                    transaction['Network'] = NETWORK
-
-                    transaction['Outputs'] = {}
-                    transaction['Outputs']['Output_Data'] = list()
-                    transaction['Outputs']['Decoys_On_Chain'] = []
-                    transaction['Inputs'] = []
-
-                    #  Add the time that xmr2csv was run
-                    with open(Wallet_dir + "/xmr2csv_start_time_" + Wallet_addr + ".csv", "r") as fp2:
-                        for line2 in fp2:
-                            transaction['xmr2csv_Data_Collection_Time'] = int(line2.strip())
-                            break
-                    #  Add the transaction
-                    wallet_tx_data[cli_csv_values[6].strip()] = transaction
-
-    #  CSV HEADER -> "Timestamp,Block_no,Tx_hash,Tx_public_key,Tx_version,Payment_id,Out_idx,Amount,Output_pub_key,Output_key_img,Output_spend"
-    #                    0         1        2           3           4          5        6       7         8               9             10
-    with open(Wallet_dir + "/xmr_report_" + Wallet_addr + ".csv", "r") as fp:
-        next(fp)  # Skip header of csv
-        for line in fp:
-            xmr2csv_report_csv_values = line.split(",")
-            tx_hash = xmr2csv_report_csv_values[2].strip()
-            #  Check if the tx hash is in the dataset yet
-            if tx_hash in wallet_tx_data.keys():
-                wallet_tx_data[tx_hash]['Tx_Version'] = xmr2csv_report_csv_values[4].strip()
-                wallet_tx_data[tx_hash]['Tx_Public_Key'] = xmr2csv_report_csv_values[3].strip()
-                wallet_tx_data[tx_hash]['Output_Pub_Key'] = xmr2csv_report_csv_values[8].strip()
-                wallet_tx_data[tx_hash]['Output_Key_Img'] = xmr2csv_report_csv_values[9].strip()
-                wallet_tx_data[tx_hash]['Out_idx'] = int(xmr2csv_report_csv_values[6].strip())
-                wallet_tx_data[tx_hash]['Wallet_Output_Number_Spent'] = int(xmr2csv_report_csv_values[10].strip())
-                #  Add Output Information
-                output_info = get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]['outputs']
-                for output_idx, output in enumerate(output_info):
-                    wallet_tx_data[tx_hash]['Outputs']['Output_Data'].append({'Amount': output['amount'], 'Stealth_Address': output['public_key']})
-
-                #  Open the file that has the timestamp from when the data was collected
-                with open(Wallet_dir + "/xmr2csv_start_time_" + Wallet_addr + ".csv", "r") as fp2:
-                    for line2 in fp2:
-                        wallet_tx_data[tx_hash]['xmr2csv_Data_Collection_Time'] = int(line2.strip())
-                        break
-
-                #  Search through the export of all ring member occurrences on chain to see if our output public key was used
-                #  CSV HEADERS -> "Timestamp, Block_no, Decoy_Tx_hash, Output_pub_key, Key_image, ring_no/ring_size"
-                #                      0          1            2               3            4            5
-                with open(Wallet_dir + "/xmr_report_ring_members_" + Wallet_addr + ".csv", "r") as fp2:
-                    next(fp2)  # Skip header of csv
-                    for line2 in fp2:
-                        ring_members_csv_values = line2.split(",")
-                        Ring_Member = {}
-                        #  Iterate through each output from the transaction
-                        for tx_output in wallet_tx_data[tx_hash]['Outputs']['Output_Data']:
-                            #  Check if the ring members public key matches an output in this transaction
-                            if tx_output['Stealth_Address'] == ring_members_csv_values[3].strip():
-                                Ring_Member['Output_Pub_Key'] = ring_members_csv_values[3].strip()
-                                Ring_Member['Block_Number'] = int(ring_members_csv_values[1].strip())
-                                # Convert timestamp to epoch time before saving
-                                #  https://stackoverflow.com/questions/30468371/how-to-convert-python-timestamp-string-to-epoch
+    #  Do some error checking, make sure the file exists
+    if exists(Wallet_dir + "/cli_export_" + Wallet_addr + ".csv"):
+        #  Open the file and get the number of lines
+        with open(Wallet_dir + "/cli_export_" + Wallet_addr + ".csv", "r") as f:
+            #  If the file only has 1 line than it's just the csv header and the wallet had no transactions
+            if len(f.readlines()) > 1:
+                # If there is transactions open the file and start parsing
+                with open(Wallet_dir + "/cli_export_" + Wallet_addr + ".csv", "r") as fp:
+                    next(fp)  # Skip header of csv
+                    for line in fp:
+                        cli_csv_values = line.split(",")
+                        if cli_csv_values[1].strip() == "out":  # Only add outgoing transactions to the dataset
+                            #  Check if the hash is a key in the dataset
+                            if cli_csv_values[6].strip() not in wallet_tx_data.keys():
+                                transaction = {}
+                                transaction['Block_Number'] = int(cli_csv_values[0].strip())
+                                transaction['Direction'] = cli_csv_values[1].strip()
+                                transaction['Block_Timestamp'] = cli_csv_values[3].strip()
+                                # Convert timestamp to epoch time
                                 p = "%Y-%m-%d %H:%M:%S"
                                 epoch = datetime(1970, 1, 1)
-                                ring_member_epoch_time = int((datetime.strptime(ring_members_csv_values[0].strip(), p) - epoch).total_seconds())
-                                Ring_Member['Block_Timestamp'] = ring_member_epoch_time
-                                Ring_Member['Key_image'] = ring_members_csv_values[4].strip()
-                                Ring_Member['Tx_Hash'] = ring_members_csv_values[2].strip()
-                                Ring_Member['Ring_no/Ring_size'] = ring_members_csv_values[5].strip()
-                                #  Find the relative age of the outputs public key on the chain compared to when xmr2csv was ran
-                                #  The time from when the data was collected minus the decoy block timestamp
-                                Ring_Member['Ring_Member_Relative_Age'] = int((datetime.fromtimestamp(wallet_tx_data[tx_hash]['xmr2csv_Data_Collection_Time']) - datetime.fromtimestamp(Ring_Member['Block_Timestamp'])).total_seconds())
+                                transaction['Block_Timestamp_Epoch'] = int((datetime.strptime(transaction['Block_Timestamp'].strip(), p) - epoch).total_seconds())
 
-                                #  CSV HEADERS -> "Output_pub_key, Frequency, Ring_size"
-                                #                         0            1           2
-                                with open(Wallet_dir + "/xmr_report_ring_members_freq_" + Wallet_addr + ".csv", "r") as fp3:
-                                    next(fp3)  # Skip header of csv
-                                    for line3 in fp3:
-                                        ring_member_freq_csv_values = line3.split(",")
-                                        #  Check if the ring members public key matches the current public key
-                                        if wallet_tx_data[tx_hash]['Output_Pub_Key'] == ring_member_freq_csv_values[0].strip():
-                                            #  Add the amount of times it has been seen on chain
-                                            Ring_Member['Ring_Member_Freq'] = int(ring_member_freq_csv_values[1].strip())
-                                wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain'].append(Ring_Member)
-                        #  Only collect 10 decoys found on chain because it gets too resource intensive when
-                        #  calculating all the temporal features for every decoy's ring signatures
-                        # if len(wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 10:
-                        #     break
+                                transaction['Amount'] = float(cli_csv_values[4].strip())
+                                transaction['Wallet_Balance'] = float(cli_csv_values[5].strip())
+                                transaction['Tx_Fee'] = float(cli_csv_values[8].strip())
+                                transaction['Destination_Address'] = cli_csv_values[9].strip()
+                                transaction['Sender_Address'] = Wallet_addr
+                                transaction['Network'] = NETWORK
 
-    #  CSV HEADERS -> "Timestamp, Block_no, Tx_hash, Output_pub_key, Key_image, Ring_no/Ring_size"
-    #                      0          1        2            3            4              5
-    with open(Wallet_dir + "/xmr_report_outgoing_txs_" + Wallet_addr + ".csv", "r") as fp:
-        next(fp)  # Skip header of csv
-        for line in fp:
-            xmr2csv_outgoing_csv_values = line.split(",")
-            if xmr2csv_outgoing_csv_values[2].strip() in wallet_tx_data.keys():
-                wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()]['Ring_no/Ring_size'] = xmr2csv_outgoing_csv_values[5].strip()
+                                transaction['Outputs'] = {}
+                                transaction['Outputs']['Output_Data'] = list()
+                                transaction['Outputs']['Decoys_On_Chain'] = []
+                                transaction['Inputs'] = []
+
+                                #  Add the time that xmr2csv was run
+                                with open(Wallet_dir + "/xmr2csv_start_time_" + Wallet_addr + ".csv", "r") as fp2:
+                                    for line2 in fp2:
+                                        transaction['xmr2csv_Data_Collection_Time'] = int(line2.strip())
+                                        break
+                                #  Add the transaction
+                                wallet_tx_data[cli_csv_values[6].strip()] = transaction
+
+                #  CSV HEADER -> "Timestamp,Block_no,Tx_hash,Tx_public_key,Tx_version,Payment_id,Out_idx,Amount,Output_pub_key,Output_key_img,Output_spend"
+                #                    0         1        2           3           4          5        6       7         8               9             10
+                with open(Wallet_dir + "/xmr_report_" + Wallet_addr + ".csv", "r") as fp:
+                    next(fp)  # Skip header of csv
+                    for line in fp:
+                        xmr2csv_report_csv_values = line.split(",")
+                        tx_hash = xmr2csv_report_csv_values[2].strip()
+                        #  Check if the tx hash is in the dataset yet
+                        if tx_hash in wallet_tx_data.keys():
+                            wallet_tx_data[tx_hash]['Tx_Version'] = xmr2csv_report_csv_values[4].strip()
+                            wallet_tx_data[tx_hash]['Tx_Public_Key'] = xmr2csv_report_csv_values[3].strip()
+                            wallet_tx_data[tx_hash]['Output_Pub_Key'] = xmr2csv_report_csv_values[8].strip()
+                            wallet_tx_data[tx_hash]['Output_Key_Img'] = xmr2csv_report_csv_values[9].strip()
+                            wallet_tx_data[tx_hash]['Out_idx'] = int(xmr2csv_report_csv_values[6].strip())
+                            wallet_tx_data[tx_hash]['Wallet_Output_Number_Spent'] = int(xmr2csv_report_csv_values[10].strip())
+                            #  Add Output Information
+                            output_info = get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]['outputs']
+                            for output_idx, output in enumerate(output_info):
+                                wallet_tx_data[tx_hash]['Outputs']['Output_Data'].append({'Amount': output['amount'], 'Stealth_Address': output['public_key']})
+
+                            #  Open the file that has the timestamp from when the data was collected
+                            with open(Wallet_dir + "/xmr2csv_start_time_" + Wallet_addr + ".csv", "r") as fp2:
+                                for line2 in fp2:
+                                    wallet_tx_data[tx_hash]['xmr2csv_Data_Collection_Time'] = int(line2.strip())
+                                    break
+
+                            #  Search through the export of all ring member occurrences on chain to see if our output public key was used
+                            #  CSV HEADERS -> "Timestamp, Block_no, Decoy_Tx_hash, Output_pub_key, Key_image, ring_no/ring_size"
+                            #                      0          1            2               3            4            5
+                            with open(Wallet_dir + "/xmr_report_ring_members_" + Wallet_addr + ".csv", "r") as fp2:
+                                next(fp2)  # Skip header of csv
+                                for line2 in fp2:
+                                    ring_members_csv_values = line2.split(",")
+                                    Ring_Member = {}
+                                    #  Iterate through each output from the transaction
+                                    for tx_output in wallet_tx_data[tx_hash]['Outputs']['Output_Data']:
+                                        #  Check if the ring members public key matches an output in this transaction
+                                        if tx_output['Stealth_Address'] == ring_members_csv_values[3].strip():
+                                            Ring_Member['Output_Pub_Key'] = ring_members_csv_values[3].strip()
+                                            Ring_Member['Block_Number'] = int(ring_members_csv_values[1].strip())
+                                            # Convert timestamp to epoch time before saving
+                                            #  https://stackoverflow.com/questions/30468371/how-to-convert-python-timestamp-string-to-epoch
+                                            p = "%Y-%m-%d %H:%M:%S"
+                                            epoch = datetime(1970, 1, 1)
+                                            ring_member_epoch_time = int((datetime.strptime(ring_members_csv_values[0].strip(), p) - epoch).total_seconds())
+                                            Ring_Member['Block_Timestamp'] = ring_member_epoch_time
+                                            Ring_Member['Key_image'] = ring_members_csv_values[4].strip()
+                                            Ring_Member['Tx_Hash'] = ring_members_csv_values[2].strip()
+                                            Ring_Member['Ring_no/Ring_size'] = ring_members_csv_values[5].strip()
+                                            #  Find the relative age of the outputs public key on the chain compared to when xmr2csv was ran
+                                            #  The time from when the data was collected minus the decoy block timestamp
+                                            Ring_Member['Ring_Member_Relative_Age'] = int((datetime.fromtimestamp(wallet_tx_data[tx_hash]['xmr2csv_Data_Collection_Time']) - datetime.fromtimestamp(Ring_Member['Block_Timestamp'])).total_seconds())
+
+                                            #  CSV HEADERS -> "Output_pub_key, Frequency, Ring_size"
+                                            #                         0            1           2
+                                            with open(Wallet_dir + "/xmr_report_ring_members_freq_" + Wallet_addr + ".csv", "r") as fp3:
+                                                next(fp3)  # Skip header of csv
+                                                for line3 in fp3:
+                                                    ring_member_freq_csv_values = line3.split(",")
+                                                    #  Check if the ring members public key matches the current public key
+                                                    if wallet_tx_data[tx_hash]['Output_Pub_Key'] == ring_member_freq_csv_values[0].strip():
+                                                        #  Add the amount of times it has been seen on chain
+                                                        Ring_Member['Ring_Member_Freq'] = int(ring_member_freq_csv_values[1].strip())
+                                            wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain'].append(Ring_Member)
+                                    #  Only collect 10 decoys found on chain because it gets too resource intensive when
+                                    #  calculating all the temporal features for every decoy's ring signatures
+                                    # if len(wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 10:
+                                    #     break
+
+                #  CSV HEADERS -> "Timestamp, Block_no, Tx_hash, Output_pub_key, Key_image, Ring_no/Ring_size"
+                #                      0          1        2            3            4              5
+                with open(Wallet_dir + "/xmr_report_outgoing_txs_" + Wallet_addr + ".csv", "r") as fp:
+                    next(fp)  # Skip header of csv
+                    for line in fp:
+                        xmr2csv_outgoing_csv_values = line.split(",")
+                        if xmr2csv_outgoing_csv_values[2].strip() in wallet_tx_data.keys():
+                            wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()]['Ring_no/Ring_size'] = xmr2csv_outgoing_csv_values[5].strip()
+            else:
+                print("Warning: " + str(Wallet_dir) + " did not contain any transactions!")
 
     return wallet_tx_data
 
@@ -343,8 +354,10 @@ def discover_wallet_directories(dir_to_search):
     global data
     pool = Pool(processes=NUM_PROCESSES)
     for wallet_tx_data in tqdm(pool.imap_unordered(func=combine_files, iterable=Wallet_info), desc="Multiprocessing combining exported transactions…", total=len(Wallet_info), colour='blue'):
-        for tx_hash, tx_data in wallet_tx_data.items():
-            data[tx_hash] = tx_data
+        #  Make sure there are transactions in the data before adding it to the dataset
+        if wallet_tx_data != {}:
+            for tx_hash, tx_data in wallet_tx_data.items():
+                data[tx_hash] = tx_data
 
 
 def clean_transaction(transaction):
