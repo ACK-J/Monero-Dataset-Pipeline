@@ -41,7 +41,7 @@ for i in range(100000):
 # Problem Solving
 ```
 #  If collect.sh throws the error: Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached
-mdb_stat -rr ~/.bitmonero/lmdb/
+/home/user/monero/external/db_drivers/liblmdb/mdb_stat -rr ~/.bitmonero/testnet/lmdb/
 ```
 
 # Testnet Nodes
