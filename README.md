@@ -22,6 +22,9 @@ rescan_bc soft
 # Check how many terminal tabs are open
 `ps --ppid $(pgrep xfce4-terminal)  | wc -l`
 
+# During collect.sh running check on progress
+`find ./ -iname *.csv | cut -d '/' -f 2 | sort -u`
+
 # After Running ./collect Gather the Ring Positions
 `find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
 
