@@ -28,6 +28,8 @@ rescan_bc soft
 # After Running ./collect Gather the Ring Positions
 `find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
 
+`find . -name "*cli_export*.csv" | xargs cat | wc -l`
+
 # Sample from Gamma Distribution
 ```
 from math import exp
