@@ -41,7 +41,7 @@ API_URL = "http://127.0.0.1:8081/api"  # Local Monero Block Explorer
 def enrich_data(tx_dict_item):
     """
 
-    :param tx_hash:
+    :param tx_dict_item:
     :return:
     """
     tx_hash = tx_dict_item[0]
@@ -176,7 +176,7 @@ def enrich_data(tx_dict_item):
 def combine_files(Wallet_info):
     """
 
-    :param Wallet_addr:
+    :param Wallet_info:
     :return:
     """
     Wallet_addr = Wallet_info[0]
@@ -462,7 +462,7 @@ def main():
         #  https://thebinarynotes.com/python-multiprocessing/
         #  https://docs.python.org/3/library/multiprocessing.html
         pool = Pool(processes=NUM_PROCESSES)
-        for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing enriching transaction data…", total=len(data.items()), colour='blue'):
+        for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing enriching transaction data…", total=len(data), colour='blue'):
             tx_hash, transaction_entry = result[0], result[1]
             data[tx_hash] = transaction_entry
         #  Save the raw database to disk

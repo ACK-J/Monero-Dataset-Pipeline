@@ -71,7 +71,7 @@ EOL
 
       #  Kill any monero-wallet-rpc processes that are still lingering
       echo -en '\033[34mKilling monero-wallet-rpc processes... \033[0m';echo;
-      procs=$(ps aux | grep monero-wallet-rpc | grep -v grep | awk '{ print $2 }')
+      procs=$(ps aux | grep "monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT" | grep -v grep | awk '{ print $2 }')
       if [ "$procs" != "" ];then
         echo "$procs" | xargs -I{} kill -9 {}
       fi
@@ -81,22 +81,12 @@ EOL
       monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT --wallet-file "$walletName" --password '' --$NETWORK --disable-rpc-login &
 
       echo -en '\033[34mWaiting... \033[0m';echo;
-      sleep 8 # Give the RPC server time to spin up
-
-      #  Query the monero-wallet-rpc process and collect the view key
-      view_key=$(curl http://127.0.0.1:$LOCAL_RPC_PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
+      sleep 1 # Give the RPC server time to spin up
 
       # Wait until the rpc server is giving a response
       while [ "$view_key" == "" ]; do
-        echo -en '\033[31mMonero-Wallet-RPC server failed to start, retrying... \033[0m';echo;
-        #  Kill any monero-wallet-rpc processes that are still lingering
-        procs=$(ps aux | grep monero-wallet-rpc | grep -v grep | awk '{ print $2 }')
-        if [ "$procs" != "" ];then
-          echo "$procs" | xargs -I{} kill -9 {}
-        fi
-        monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT --wallet-file "$walletName" --password '' --$NETWORK --disable-rpc-login &
-        sleep 30 # Give the RPC server time to spin up
-        #  Connect to the RPC server and get the view & spend key
+        sleep 1
+        #  Query the monero-wallet-rpc process and collect the view key
         view_key=$(curl http://127.0.0.1:$LOCAL_RPC_PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
       done
 
@@ -104,7 +94,7 @@ EOL
       spend_key=$(curl http://127.0.0.1:$LOCAL_RPC_PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
 
       #  Kill the wallet rpc wallet
-      procs=$(ps aux | grep monero-wallet-rpc | grep -v grep | awk '{ print $2 }')
+      procs=$(ps aux | grep "monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT" | grep -v grep | awk '{ print $2 }')
       if [ "$procs" != "" ];then
         echo "$procs" | xargs -I{} kill -9 {}
       fi
@@ -114,6 +104,7 @@ EOL
       #  Make xmr2csv command using all the collected values and save the command to a text file to be run in parallel later on
       echo xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --"$NETWORK" --start-height "$min_block_height" --ring-members --out-csv-file "$working_dir"/xmr_report_"$walletAddr".csv --out-csv-file2 "$working_dir"/xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 "$working_dir"/xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 "$working_dir"/xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 "$working_dir"/xmr_report_outgoing_txs_"$walletAddr".csv >> "$parent_dir"/xmr2csv_commands.txt
       echo -en "\033[34mXMR2CSV command constructed and saved to ${parent_dir}/xmr2csv_commands.txt\033[0m";echo;
+      echo -en "\033[34mxmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --$NETWORK --start-height $min_block_height --ring-members --out-csv-file $working_dir/xmr_report_$walletAddr.csv --out-csv-file2 $working_dir/xmr_report_ring_members_$walletAddr.csv --out-csv-file3 $working_dir/xmr_report_ring_members_freq_$walletAddr.csv --out-csv-file4 $working_dir/xmr_report_key_images_outputs_$walletAddr.csv --out-csv-file5 $working_dir/xmr_report_outgoing_txs_$walletAddr.csv\033[0m";echo;
     fi # End error check
 
   done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
