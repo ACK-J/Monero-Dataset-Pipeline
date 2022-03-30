@@ -10,6 +10,7 @@
 # Global variables
 REMOTE_NODE="127.0.0.1"   # testnet.community.rino.io
 NETWORK="testnet"  # Case-sensitive (make all lowercase) (Options: "testnet" or "stagenet")
+num_processors=$(nproc --all)
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
@@ -81,7 +82,9 @@ EOL
       monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT --wallet-file "$walletName" --password '' --$NETWORK --disable-rpc-login &
 
       echo -en '\033[34mWaiting... \033[0m';echo;
-      sleep 1 # Give the RPC server time to spin up
+      sleep 2 # Give the RPC server time to spin up
+      view_key=$(curl http://127.0.0.1:$LOCAL_RPC_PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
+      spend_key=$(curl http://127.0.0.1:$LOCAL_RPC_PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
 
       # Wait until the rpc server is giving a response
       while [ "$view_key" == "" ]; do
@@ -89,9 +92,11 @@ EOL
         #  Query the monero-wallet-rpc process and collect the view key
         view_key=$(curl http://127.0.0.1:$LOCAL_RPC_PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"view_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
       done
-
-      #  Query the monero-wallet-rpc process and collect the spend key
-      spend_key=$(curl http://127.0.0.1:$LOCAL_RPC_PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
+      while [ "$spend_key" == "" ]; do
+        sleep 1
+        #  Query the monero-wallet-rpc process and collect the spend key
+        spend_key=$(curl http://127.0.0.1:$LOCAL_RPC_PORT/json_rpc -s -d '{"jsonrpc":"2.0","id":"0","method":"query_key","params":{"key_type":"spend_key"}}' -H 'Content-Type: application/json' | jq '.result.key' -r)
+      done
 
       #  Kill the wallet rpc wallet
       procs=$(ps aux | grep "monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT" | grep -v grep | awk '{ print $2 }')
@@ -102,9 +107,10 @@ EOL
       #  Save the epoch time of when the scan started since Decoy_Output_Ring_Member_Frequency will depend on it
       date +%s > xmr2csv_start_time_"$walletAddr".csv
       #  Make xmr2csv command using all the collected values and save the command to a text file to be run in parallel later on
-      echo xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --"$NETWORK" --start-height "$min_block_height" --ring-members --out-csv-file "$working_dir"/xmr_report_"$walletAddr".csv --out-csv-file2 "$working_dir"/xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 "$working_dir"/xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 "$working_dir"/xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 "$working_dir"/xmr_report_outgoing_txs_"$walletAddr".csv >> "$parent_dir"/xmr2csv_commands.txt
+      echo xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --"$NETWORK" --start-height "$min_block_height" --ring-members --all-outputs --out-csv-file "$working_dir"/xmr_report_"$walletAddr".csv --out-csv-file2 "$working_dir"/xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 "$working_dir"/xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 "$working_dir"/xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 "$working_dir"/xmr_report_outgoing_txs_"$walletAddr".csv >> "$parent_dir"/xmr2csv_commands.txt
+      #  Echo the commands to stdout
       echo -en "\033[34mXMR2CSV command constructed and saved to ${parent_dir}/xmr2csv_commands.txt\033[0m";echo;
-      echo -en "\033[34mxmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --$NETWORK --start-height $min_block_height --ring-members --out-csv-file $working_dir/xmr_report_$walletAddr.csv --out-csv-file2 $working_dir/xmr_report_ring_members_$walletAddr.csv --out-csv-file3 $working_dir/xmr_report_ring_members_freq_$walletAddr.csv --out-csv-file4 $working_dir/xmr_report_key_images_outputs_$walletAddr.csv --out-csv-file5 $working_dir/xmr_report_outgoing_txs_$walletAddr.csv\033[0m";echo;
+      echo -en "\033[34mxmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --$NETWORK --start-height $min_block_height --ring-members --all-outputs --out-csv-file $working_dir/xmr_report_$walletAddr.csv --out-csv-file2 $working_dir/xmr_report_ring_members_$walletAddr.csv --out-csv-file3 $working_dir/xmr_report_ring_members_freq_$walletAddr.csv --out-csv-file4 $working_dir/xmr_report_key_images_outputs_$walletAddr.csv --out-csv-file5 $working_dir/xmr_report_outgoing_txs_$walletAddr.csv\033[0m";echo;
     fi # End error check
 
   done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
@@ -114,6 +120,5 @@ done < <(find . -mindepth 2 -type f -name '*.keys' | sed -r 's|/[^/]+$||' | sort
 
 echo;echo;echo;
 echo -en '\033[34mStarting multiprocessing of xmr2csv exports... \033[0m';echo;
-num_processors=$(nproc --all)
 # https://adamtheautomator.com/how-to-speed-up-bash-scripts-with-multithreading-and-gnu-parallel/
 cat "$parent_dir"/xmr2csv_commands.txt | parallel --bar --jobs "$num_processors" {}

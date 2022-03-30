@@ -4,8 +4,8 @@ from time import time
 from tqdm import tqdm
 from requests import get
 from os.path import exists
-from datetime import datetime
 from statistics import median
+from datetime import datetime
 from os import walk, getcwd, chdir
 from multiprocessing import Pool, cpu_count
 from requests.exceptions import ConnectionError
@@ -23,11 +23,11 @@ Usage: ./create_dataset.py < Wallets Directory Path >
 Date: 3/23/2022
 Author: ACK-J
 
-Warning: DO NOT run this script with a remote node, there are a lot of blockchain lookups!
+Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
 Warning: Run your own monerod process and block explorer
 To run your own block explorer:
-    monerod --testnet                        https://github.com/monero-project/monero
-    xmrblocks --testnet --enable-json-api    https://github.com/moneroexamples/onion-monero-blockchain-explorer
+    monerod --stagenet                        https://github.com/monero-project/monero
+    xmrblocks --stagenet --enable-json-api    https://github.com/moneroexamples/onion-monero-blockchain-explorer
             
 '''
 
@@ -136,7 +136,7 @@ def enrich_data(tx_dict_item):
                         transaction_entry['Inputs'][input_idx]['Time_Deltas_Between_Ring_Members'][str(ring_num-1) + '_' + str(ring_num)] = time_delta
             if len(ring_mem_times) > 1:
                 # Add temporal features
-                #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
+                #  Calculate the total time span of the ring signature ( the newest ring on chain block time - oldest ring on chain block time )
                 transaction_entry['Inputs'][input_idx]['Total_Ring_Time_Span'] = int((datetime.fromtimestamp(ring_mem_times[len(ring_mem_times)-1]) - datetime.fromtimestamp(ring_mem_times[0])).total_seconds())
                 #  Calculate the time between the newest ring in the signature to the block time of the transaction
                 transaction_entry['Inputs'][input_idx]['Time_Delta_From_Newest_Ring_To_Block'] = int((datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch']) - datetime.fromtimestamp(ring_mem_times[len(ring_mem_times)-1])).total_seconds())
@@ -146,6 +146,16 @@ def enrich_data(tx_dict_item):
                 transaction_entry['Inputs'][input_idx]['Mean_Ring_Time'] = int(sum(ring_mem_times) / len(ring_mem_times)) - ring_mem_times[0]
                 #  Calculate the median of the ring time
                 transaction_entry['Inputs'][input_idx]['Median_Ring_Time'] = int(median(ring_mem_times)) - ring_mem_times[0]
+
+    # Move labels to Input dictionary
+    for input_key_image, true_ring_position in transaction_entry['Input_True_Rings'].items():
+        #  Match the true spent ring's key image to one of the inputs
+        for each_input in transaction_entry['Inputs']:
+            if each_input['Key_Image'] == input_key_image:
+                #  add a field for the input for the true ring spent
+                each_input['Ring_no/Ring_size'] = true_ring_position
+    #  Delete the temporary dict() holding the true ring positions
+    del transaction_entry['Input_True_Rings']
 
     #  Temporal features for decoys on chain
     transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain'] = {}
@@ -303,8 +313,13 @@ def combine_files(Wallet_info):
                     next(fp)  # Skip header of csv
                     for line in fp:
                         xmr2csv_outgoing_csv_values = line.split(",")
+                        #  Make sure the hash exists in the dataset
                         if xmr2csv_outgoing_csv_values[2].strip() in wallet_tx_data.keys():
-                            wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()]['Ring_no/Ring_size'] = xmr2csv_outgoing_csv_values[5].strip()
+                            #  Check if there is a dictionary to keep track of input true spends (labels)
+                            if 'Input_True_Rings' not in wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()].keys():
+                                wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()]['Input_True_Rings'] = {}
+                            #  Set the key image as the dictionary key and 'Ring_no/Ring_size' as the value
+                            wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()]['Input_True_Rings'][xmr2csv_outgoing_csv_values[4].strip()] = xmr2csv_outgoing_csv_values[5].strip()
             else:
                 print("Warning: " + str(Wallet_dir) + " did not contain any transactions!")
 
@@ -331,7 +346,7 @@ def discover_wallet_directories(dir_to_search):
     Wallet_addrs = []
     Wallet_info = []
     #  Go through each directory that has csv files in it
-    for idx, dir in tqdm(enumerate(unique_directories), desc="Enumerating wallet files…", total=len(unique_directories), colour='blue'):
+    for idx, dir in tqdm(enumerate(unique_directories), desc="Enumerating wallet files", total=len(unique_directories), colour='blue'):
         chdir(dir)
         #  Iterate over the files in the directory
         for root, dirs, files in walk("."):
@@ -353,7 +368,7 @@ def discover_wallet_directories(dir_to_search):
     # Multiprocess combining the 6 files for each wallet
     global data
     pool = Pool(processes=NUM_PROCESSES)
-    for wallet_tx_data in tqdm(pool.imap_unordered(func=combine_files, iterable=Wallet_info), desc="Multiprocessing combining exported transactions…", total=len(Wallet_info), colour='blue'):
+    for wallet_tx_data in tqdm(pool.imap_unordered(func=combine_files, iterable=Wallet_info), desc="Multiprocessing Combining Exported Transactions", total=len(Wallet_info), colour='blue'):
         #  Make sure there are transactions in the data before adding it to the dataset
         if wallet_tx_data != {}:
             for tx_hash, tx_data in wallet_tx_data.items():
@@ -393,7 +408,7 @@ def clean_transaction(transaction):
     del transaction['Out_idx']
     private_info['Wallet_Output_Number_Spent'] = transaction['Wallet_Output_Number_Spent']
     del transaction['Wallet_Output_Number_Spent']
-    private_info['Ring_no/Ring_size'] = transaction['Ring_no/Ring_size']
+    private_info['Ring_no/Ring_size'] = transaction['Ring_no/Ring_size']  # TODO FIX THIS TO INCLUDE BOTH INPUTS LABELS
     del transaction['Ring_no/Ring_size']
     del transaction['Payment_ID']
     del transaction['Payment_ID8']
@@ -411,9 +426,9 @@ def create_feature_set(database):
     :param database: Nested dictionary of Monero transaction metadata
     :return: A pandas dataframe of the input data and a list of labels
     """
-    import pandas as pd
+    from pandas import DataFrame, concat
     from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
-    feature_set = pd.DataFrame()
+    feature_set = DataFrame()
     labels = []
     BadSamples = []
     #  Iterate through each tx hash
@@ -431,7 +446,7 @@ def create_feature_set(database):
         #  flatten the transaction data so it can be input into a dataframe
         transaction = CherryPicker(transaction).flatten(delim='.').get()
         #  add the transaction to the feature set dataframe
-        feature_set = pd.concat([feature_set, pd.DataFrame(transaction, index=[idx])])
+        feature_set = concat([feature_set, DataFrame(transaction, index=[idx])])
         #  add the labels to the list
         labels.append(private_info)
     for bad in BadSamples:
@@ -452,6 +467,9 @@ def main():
         print("Error: " + NETWORK + " block explorer located at " + API_URL + " refused connection!")
         exit(1)
 
+    # Configuration warnings
+    print("The dataset is being collected for the " + NETWORK + " using " + API_URL + " as a block explorer!")
+
     try:
         global data
         print("Opening " + str(argv[1]) + "\n")
@@ -462,7 +480,7 @@ def main():
         #  https://thebinarynotes.com/python-multiprocessing/
         #  https://docs.python.org/3/library/multiprocessing.html
         pool = Pool(processes=NUM_PROCESSES)
-        for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing enriching transaction data…", total=len(data), colour='blue'):
+        for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing Enriching Transaction Data", total=len(data), colour='blue'):
             tx_hash, transaction_entry = result[0], result[1]
             data[tx_hash] = transaction_entry
         #  Save the raw database to disk
