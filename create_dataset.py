@@ -2,11 +2,14 @@ import pickle
 from sys import argv
 from time import time
 from tqdm import tqdm
+from gc import collect
 from requests import get
 from os.path import exists
 from statistics import median
 from datetime import datetime
 from os import walk, getcwd, chdir
+from pandas import DataFrame, concat
+from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
 from multiprocessing import Pool, cpu_count
 from requests.exceptions import ConnectionError
 
@@ -53,7 +56,7 @@ def enrich_data(tx_dict_item):
     transaction_entry['Tx_Size'] = tx_response["tx_size"]
     # Check if the fee is missing
     if 'Tx_Fee' not in transaction_entry.keys():
-        transaction_entry['Tx_Fee'] = float(tx_response['tx_fee'] * 0.000000000001) #  Converted from piconero to monero
+        transaction_entry['Tx_Fee'] = float(tx_response['tx_fee'] * 0.000000000001)  # Converted from piconero to monero
     transaction_entry['Tx_Fee_Per_Byte'] = float(transaction_entry['Tx_Fee']) / int(transaction_entry['Tx_Size'])
     transaction_entry['Num_Confirmations'] = tx_response["confirmations"]
     transaction_entry['Time_Of_Enrichment'] = int(time())
@@ -69,7 +72,7 @@ def enrich_data(tx_dict_item):
     Total_Block_Tx_Fees = 0
     for tx in block_response["txs"]:
         Total_Block_Tx_Fees += int(tx["tx_fee"])
-    transaction_entry['Total_Block_Tx_Fees'] = float(Total_Block_Tx_Fees * 0.000000000001) #  Converted from piconero to monero
+    transaction_entry['Total_Block_Tx_Fees'] = float(Total_Block_Tx_Fees * 0.000000000001)  # Converted from piconero to monero
     transaction_entry['Block_Size'] = block_response["size"]
     transaction_entry['Time_Since_Last_Block'] = int((datetime.fromtimestamp(int(block_response["timestamp"])) - datetime.fromtimestamp(int(previous_block_response["timestamp"]))).total_seconds())
 
@@ -365,14 +368,22 @@ def discover_wallet_directories(dir_to_search):
     chdir(cwd)
 
     del Wallet_addrs  # Not needed anymore
+    collect()
     # Multiprocess combining the 6 files for each wallet
     global data
+    total_txs = 0
+    num_bad_txs = 0
     pool = Pool(processes=NUM_PROCESSES)
     for wallet_tx_data in tqdm(pool.imap_unordered(func=combine_files, iterable=Wallet_info), desc="Multiprocessing Combining Exported Transactions", total=len(Wallet_info), colour='blue'):
         #  Make sure there are transactions in the data before adding it to the dataset
-        if wallet_tx_data != {}:
-            for tx_hash, tx_data in wallet_tx_data.items():
+        for tx_hash, tx_data in wallet_tx_data.items():
+            if "Input_True_Rings" in tx_data.keys():
                 data[tx_hash] = tx_data
+                total_txs += 1
+            else:
+                num_bad_txs += 1
+    print("There were " + str(num_bad_txs) + " bad transactions that were deleted out of a total " + str(total_txs) + " transactions!")
+    print("Dataset now includes " + str(len(data)) + " transactions.")
 
 
 def clean_transaction(transaction):
@@ -387,6 +398,7 @@ def clean_transaction(transaction):
     :return: A dictionary of labels associated to the inputted transaction
     """
     private_info = {}
+    private_info['True_Ring_Pos'] = {}
     del transaction['Direction']
     del transaction['Block_Timestamp']
     private_info['Tx_Amount'] = transaction['Amount']
@@ -396,11 +408,15 @@ def clean_transaction(transaction):
     del transaction['Destination_Address']
     del transaction['Sender_Address']
     del transaction['Network']
-    del transaction['Outputs']['Output_Data']
-    del transaction['Outputs']['Decoys_On_Chain']  # TODO NEED TO EXPAND UPON THIS
-    for input in transaction['Inputs']:
+    del transaction['Outputs']
+    # del transaction['Outputs']['Output_Data']
+    # del transaction['Outputs']['Decoys_On_Chain']  # TODO NEED TO EXPAND UPON THIS
+    for idx, input in enumerate(transaction['Inputs']):
         del input['Key_Image']
         del input['Ring_Members']
+        private_info['True_Ring_Pos'][idx] = input['Ring_no/Ring_size']
+        del input['Ring_no/Ring_size']
+    del transaction['xmr2csv_Data_Collection_Time']
     del transaction['Tx_Public_Key']
     del transaction['Output_Pub_Key']
     del transaction['Output_Key_Img']
@@ -408,13 +424,25 @@ def clean_transaction(transaction):
     del transaction['Out_idx']
     private_info['Wallet_Output_Number_Spent'] = transaction['Wallet_Output_Number_Spent']
     del transaction['Wallet_Output_Number_Spent']
-    private_info['Ring_no/Ring_size'] = transaction['Ring_no/Ring_size']  # TODO FIX THIS TO INCLUDE BOTH INPUTS LABELS
-    del transaction['Ring_no/Ring_size']
     del transaction['Payment_ID']
     del transaction['Payment_ID8']
+    del transaction['Time_Of_Enrichment']
     del transaction['Tx_Extra']  # TODO NEED TO USE THIS LATER ON
     del transaction['Num_Decoys']  # TODO
+    del transaction['Block_To_xmr2csv_Time_Delta']
+    collect()
     return private_info
+
+
+def flatten_dict(tx_data):
+    """
+
+    :param tx_data:
+    :return:
+    """
+    #  flatten the transaction data so it can be input into a dataframe
+    transaction = CherryPicker(tx_data[0]).flatten(delim='.').get()
+    return transaction, tx_data[1]
 
 
 def create_feature_set(database):
@@ -426,31 +454,34 @@ def create_feature_set(database):
     :param database: Nested dictionary of Monero transaction metadata
     :return: A pandas dataframe of the input data and a list of labels
     """
-    from pandas import DataFrame, concat
-    from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
     feature_set = DataFrame()
     labels = []
-    BadSamples = []
+    Valid_Transactions = []
     #  Iterate through each tx hash
-    for idx, tx_hash in enumerate(database.keys()):
-        #  Get the transaction
-        transaction = database[tx_hash]
+    for idx, tx_hash in tqdm(enumerate(database.keys()), total=len(database), colour='blue', desc="Cleaning Transactions"):
         #  Pass the transaction ( by reference ) to be stripped of non-features and receive the labels back
         try:
-            private_info = clean_transaction(transaction)
+            private_info = clean_transaction(database[tx_hash])
         except Exception as e:
-            print(idx, tx_hash)
-            print(transaction)
-            BadSamples.append(tx_hash)
+            #print(idx, tx_hash)
+            #print(e)
             continue
-        #  flatten the transaction data so it can be input into a dataframe
-        transaction = CherryPicker(transaction).flatten(delim='.').get()
-        #  add the transaction to the feature set dataframe
-        feature_set = concat([feature_set, DataFrame(transaction, index=[idx])])
+        #  add tx hash to good list
+        Valid_Transactions.append([database[tx_hash], idx])
         #  add the labels to the list
         labels.append(private_info)
-    for bad in BadSamples:
-        del database[bad]
+
+    del database
+    collect()  # Garbage Collector
+    for transaction in tqdm(Valid_Transactions, total=len(Valid_Transactions), colour='blue', desc="Flattening Transactions"):
+        tx, idx = flatten_dict(transaction)
+        feature_set = concat([feature_set, DataFrame(tx, index=[idx])])
+
+    # pool = Pool(processes=NUM_PROCESSES)
+    # for result in tqdm(pool.imap_unordered(func=flatten_dict, iterable=Valid_Transactions), desc="Multiprocessing Flattening Data Structure", total=len(Valid_Transactions), colour='blue'):
+    #     #  add the transaction to the feature set dataframe
+    #     feature_set = concat([feature_set, DataFrame(result[0], index=[result[1]])])
+
     #  Replace any Null values with -1
     return feature_set.fillna(-1), labels
 
@@ -493,15 +524,20 @@ def main():
         #  Feature selection on raw dataset
         X, y = create_feature_set(data)
         X.reset_index(drop=True, inplace=True)
+        assert len(X) == len(y)
         #  Save data and labels to disk for future AI training
         with open("X.pkl", "wb") as fp:
             pickle.dump(X, fp)
         with open("y.pkl", "wb") as fp:
             pickle.dump(y, fp)
+        print("X.pkl and y.pkl written to disk!\nFinished")
 
     # Gracefully exits if user hits CTRL + C
     except KeyboardInterrupt as e:
         print("Error: User stopped the script's execution!")
+        exit(1)
+    except Exception as e:
+        print(e)
         exit(1)
 
 

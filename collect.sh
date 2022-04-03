@@ -12,6 +12,8 @@ REMOTE_NODE="127.0.0.1"   # testnet.community.rino.io
 NETWORK="testnet"  # Case-sensitive (make all lowercase) (Options: "testnet" or "stagenet")
 num_processors=$(nproc --all)
 
+# TODO LOOK INTO ADDING --ALL-OUTPUTS AND --ALL-KEY-IMAGES
+
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
 #############################################################################
@@ -107,10 +109,10 @@ EOL
       #  Save the epoch time of when the scan started since Decoy_Output_Ring_Member_Frequency will depend on it
       date +%s > xmr2csv_start_time_"$walletAddr".csv
       #  Make xmr2csv command using all the collected values and save the command to a text file to be run in parallel later on
-      echo xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --"$NETWORK" --start-height "$min_block_height" --ring-members --all-outputs --out-csv-file "$working_dir"/xmr_report_"$walletAddr".csv --out-csv-file2 "$working_dir"/xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 "$working_dir"/xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 "$working_dir"/xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 "$working_dir"/xmr_report_outgoing_txs_"$walletAddr".csv >> "$parent_dir"/xmr2csv_commands.txt
+      echo xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --"$NETWORK" --start-height "$min_block_height" --ring-members --out-csv-file "$working_dir"/xmr_report_"$walletAddr".csv --out-csv-file2 "$working_dir"/xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 "$working_dir"/xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 "$working_dir"/xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 "$working_dir"/xmr_report_outgoing_txs_"$walletAddr".csv >> "$parent_dir"/xmr2csv_commands.txt
       #  Echo the commands to stdout
       echo -en "\033[34mXMR2CSV command constructed and saved to ${parent_dir}/xmr2csv_commands.txt\033[0m";echo;
-      echo -en "\033[34mxmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --$NETWORK --start-height $min_block_height --ring-members --all-outputs --out-csv-file $working_dir/xmr_report_$walletAddr.csv --out-csv-file2 $working_dir/xmr_report_ring_members_$walletAddr.csv --out-csv-file3 $working_dir/xmr_report_ring_members_freq_$walletAddr.csv --out-csv-file4 $working_dir/xmr_report_key_images_outputs_$walletAddr.csv --out-csv-file5 $working_dir/xmr_report_outgoing_txs_$walletAddr.csv\033[0m";echo;
+      echo -en "\033[34mxmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --$NETWORK --start-height $min_block_height --ring-members --out-csv-file $working_dir/xmr_report_$walletAddr.csv --out-csv-file2 $working_dir/xmr_report_ring_members_$walletAddr.csv --out-csv-file3 $working_dir/xmr_report_ring_members_freq_$walletAddr.csv --out-csv-file4 $working_dir/xmr_report_key_images_outputs_$walletAddr.csv --out-csv-file5 $working_dir/xmr_report_outgoing_txs_$walletAddr.csv\033[0m";echo;
     fi # End error check
 
   done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
