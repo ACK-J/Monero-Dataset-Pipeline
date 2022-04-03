@@ -501,37 +501,44 @@ def main():
     # Configuration warnings
     print("The dataset is being collected for the " + NETWORK + " using " + API_URL + " as a block explorer!")
 
+    global data
+    print("Opening " + str(argv[1]) + "\n")
+    #  Find where the wallets are stored and combine the exported files
+    discover_wallet_directories(argv[1])
+
+    #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
+    #  https://thebinarynotes.com/python-multiprocessing/
+    #  https://docs.python.org/3/library/multiprocessing.html
+    pool = Pool(processes=NUM_PROCESSES)
+    for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing Enriching Transaction Data", total=len(data), colour='blue'):
+        tx_hash, transaction_entry = result[0], result[1]
+        data[tx_hash] = transaction_entry
+    #  Save the raw database to disk
+    with open("dataset.pkl", "wb") as fp:
+        pickle.dump(data, fp)
+    print("dataset.pkl written to disk!")
+
+    ##############################
+    #  Load in the saved dataset #
+    ##############################
+    with open("dataset.pkl", "rb") as fp:
+        data = pickle.load(fp)
+    #  Feature selection on raw dataset
+    X, y = create_feature_set(data)
+    X.reset_index(drop=True, inplace=True)
+    #  Save data and labels to disk for future AI training
+    with open("X.pkl", "wb") as fp:
+        pickle.dump(X, fp)
+    with open("y.pkl", "wb") as fp:
+        pickle.dump(y, fp)
+    #  Error checking; labels and data should be the same length
+    assert len(X) == len(y)
+    print("X.pkl and y.pkl written to disk!\nFinished")
+
+
+if __name__ == '__main__':
     try:
-        global data
-        print("Opening " + str(argv[1]) + "\n")
-        #  Find where the wallets are stored and combine the exported files
-        discover_wallet_directories(argv[1])
-
-        #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
-        #  https://thebinarynotes.com/python-multiprocessing/
-        #  https://docs.python.org/3/library/multiprocessing.html
-        pool = Pool(processes=NUM_PROCESSES)
-        for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing Enriching Transaction Data", total=len(data), colour='blue'):
-            tx_hash, transaction_entry = result[0], result[1]
-            data[tx_hash] = transaction_entry
-        #  Save the raw database to disk
-        with open("dataset.pkl", "wb") as fp:
-            pickle.dump(data, fp)
-
-        #  Read in the saved dataset
-        with open("dataset.pkl", "rb") as fp:
-            data = pickle.load(fp)
-        #  Feature selection on raw dataset
-        X, y = create_feature_set(data)
-        X.reset_index(drop=True, inplace=True)
-        assert len(X) == len(y)
-        #  Save data and labels to disk for future AI training
-        with open("X.pkl", "wb") as fp:
-            pickle.dump(X, fp)
-        with open("y.pkl", "wb") as fp:
-            pickle.dump(y, fp)
-        print("X.pkl and y.pkl written to disk!\nFinished")
-
+        main()
     # Gracefully exits if user hits CTRL + C
     except KeyboardInterrupt as e:
         print("Error: User stopped the script's execution!")
@@ -539,7 +546,3 @@ def main():
     except Exception as e:
         print(e)
         exit(1)
-
-
-if __name__ == '__main__':
-    main()
