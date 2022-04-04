@@ -434,17 +434,6 @@ def clean_transaction(transaction):
     return private_info
 
 
-def flatten_dict(tx_data):
-    """
-
-    :param tx_data:
-    :return:
-    """
-    #  flatten the transaction data so it can be input into a dataframe
-    transaction = CherryPicker(tx_data[0]).flatten(delim='.').get()
-    return transaction, tx_data[1]
-
-
 def create_feature_set(database):
     """
     This function takes in a nested python dictionary dataset, removes
@@ -457,37 +446,33 @@ def create_feature_set(database):
     feature_set = DataFrame()
     labels = []
     Valid_Transactions = []
+    num_errors = 0
     #  Iterate through each tx hash
     for idx, tx_hash in tqdm(enumerate(database.keys()), total=len(database), colour='blue', desc="Cleaning Transactions"):
         #  Pass the transaction ( by reference ) to be stripped of non-features and receive the labels back
         try:
             private_info = clean_transaction(database[tx_hash])
         except Exception as e:
-            #print(idx, tx_hash)
-            #print(e)
+            num_errors += 1
             continue
         #  add tx hash to good list
-        Valid_Transactions.append([database[tx_hash], idx])
+        Valid_Transactions.append(DataFrame(CherryPicker(database[tx_hash]).flatten(delim='.').get(), index=[idx]))
         #  add the labels to the list
         labels.append(private_info)
 
+    print("Number of skipped transactions:", num_errors)
     del database
     collect()  # Garbage Collector
-    for transaction in tqdm(Valid_Transactions, total=len(Valid_Transactions), colour='blue', desc="Flattening Transactions"):
-        tx, idx = flatten_dict(transaction)
-        feature_set = concat([feature_set, DataFrame(tx, index=[idx])])
 
-    # pool = Pool(processes=NUM_PROCESSES)
-    # for result in tqdm(pool.imap_unordered(func=flatten_dict, iterable=Valid_Transactions), desc="Multiprocessing Flattening Data Structure", total=len(Valid_Transactions), colour='blue'):
-    #     #  add the transaction to the feature set dataframe
-    #     feature_set = concat([feature_set, DataFrame(result[0], index=[result[1]])])
+    # Combine dataframes together
+    feature_set = concat(Valid_Transactions, axis=0)
 
     #  Replace any Null values with -1
     return feature_set.fillna(-1), labels
 
 
 def main():
-    #  Error Checking
+    # Error Checking
     if len(argv) != 2:
         print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
         exit(1)
@@ -497,7 +482,6 @@ def main():
     except ConnectionError as e:
         print("Error: " + NETWORK + " block explorer located at " + API_URL + " refused connection!")
         exit(1)
-
     # Configuration warnings
     print("The dataset is being collected for the " + NETWORK + " using " + API_URL + " as a block explorer!")
 

@@ -35,6 +35,10 @@ def undersample(X, y):
             need_to_delete_y.append(idx)
     labels = [i for j, i in enumerate(y) if j not in need_to_delete_y]
     X.reset_index(drop=True, inplace=True)
+    with open("X_Undersampled.pkl", "wb") as fp:
+        pickle.dump(X, fp)
+    with open("y_Undersampled.pkl", "wb") as fp:
+        pickle.dump(labels, fp)
     return X, labels
 
 
