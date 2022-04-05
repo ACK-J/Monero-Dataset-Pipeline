@@ -7,6 +7,7 @@ from requests import get
 from os.path import exists
 from statistics import median
 from datetime import datetime
+from collections import Counter
 from os import walk, getcwd, chdir
 from pandas import DataFrame, concat
 from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
@@ -471,6 +472,52 @@ def create_feature_set(database):
     return feature_set.fillna(-1), labels
 
 
+def undersample(X, y):
+    """
+
+    :param X:
+    :param y:
+    :return:
+    """
+    #  Only get the label we need
+    true_spend = []
+    for record in y:
+        for idx, ring_pos in record["True_Ring_Pos"].items():
+            true_spend.append(int(ring_pos.split("/")[0]))
+
+    X.reset_index(drop=True, inplace=True)
+    labels_distribution = Counter(true_spend)
+    min_occurrences = labels_distribution.most_common()[len(labels_distribution)-1][1]
+    print("Undersampling to " + str(min_occurrences) + " transactions per class.")
+    #max_occurrences = labels_distribution.most_common(1)[0][1]
+    occurrences = {}
+    new_y = []
+    new_X = []
+    for i in range(len(labels_distribution)):
+        occurrences[i+1] = 0
+    for idx, val in tqdm(enumerate(y), total=len(y), colour='blue', desc="Undersampling Dataset"):
+        for i in range(len(val["True_Ring_Pos"])):
+            ring_pos = int(val["True_Ring_Pos"][i].split("/")[0])
+            if occurrences[ring_pos] < min_occurrences:
+                occurrences[ring_pos] = occurrences[ring_pos] + 1
+                # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.iloc.html#pandas.DataFrame.iloc
+                temp_df = X.iloc[[idx]]
+                if len(val["True_Ring_Pos"]) != 1:
+                    for col in X.columns:
+                        if "." in col and "." + str(i) + "." not in col:
+                            temp_df.replace([col], -1.0)
+                new_X.append(temp_df)
+                new_y.append(true_spend[idx + i])
+    del X
+    collect()
+    # Combine dataframes together
+    undersampled_X = concat(new_X, axis=0)
+    del new_X
+    collect()
+    undersampled_X.reset_index(drop=True, inplace=True)
+    return undersampled_X, new_y
+
+
 def main():
     # Error Checking
     if len(argv) != 2:
@@ -485,6 +532,9 @@ def main():
     # Configuration warnings
     print("The dataset is being collected for the " + NETWORK + " using " + API_URL + " as a block explorer!")
 
+    ###########################################
+    #  Create the dataset from files on disk  #
+    ###########################################
     global data
     print("Opening " + str(argv[1]) + "\n")
     #  Find where the wallets are stored and combine the exported files
@@ -502,9 +552,9 @@ def main():
         pickle.dump(data, fp)
     print("dataset.pkl written to disk!")
 
-    ##############################
-    #  Load in the saved dataset #
-    ##############################
+    ###############################
+    #  Load in the saved dataset  #
+    ###############################
     with open("dataset.pkl", "rb") as fp:
         data = pickle.load(fp)
     #  Feature selection on raw dataset
@@ -517,7 +567,26 @@ def main():
         pickle.dump(y, fp)
     #  Error checking; labels and data should be the same length
     assert len(X) == len(y)
-    print("X.pkl and y.pkl written to disk!\nFinished")
+    print("X.pkl and y.pkl written to disk!")
+
+    ###################
+    #  Undersampling  #
+    ###################
+
+    with open("X.pkl", "rb") as fp:
+        X = pickle.load(fp)
+    with open("y.pkl", "rb") as fp:
+        y = pickle.load(fp)
+
+    print("Starting to undersample the dataset...")
+    X_Undersampled, y_Undersampled = undersample(X, y)
+
+    with open("X_Undersampled.pkl", "wb") as fp:
+        pickle.dump(X_Undersampled, fp)
+    with open("y_Undersampled.pkl", "wb") as fp:
+        pickle.dump(y_Undersampled, fp)
+
+    print("X_Undersampled.pkl and y_Undersampled.pkl written to disk!\nFinished")
 
 
 if __name__ == '__main__':
@@ -527,6 +596,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt as e:
         print("Error: User stopped the script's execution!")
         exit(1)
-    except Exception as e:
-        print(e)
-        exit(1)
+    # except Exception as e:
+    #     print("ERROR: " +str(e))
+    #     exit(1)
