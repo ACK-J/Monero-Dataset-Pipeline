@@ -24,7 +24,7 @@ Description: Once transactions have been exported from collect.sh this script wi
              clean the dataset into only relevant features and serialize an X and y dataframe
              which can be used for machine learning applications.
 Usage: ./create_dataset.py < Wallets Directory Path >
-Date: 3/23/2022
+Date: 4/5/2022
 Author: ACK-J
 
 Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
@@ -596,6 +596,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt as e:
         print("Error: User stopped the script's execution!")
         exit(1)
-    # except Exception as e:
-    #     print("ERROR: " +str(e))
-    #     exit(1)
+    except Exception as e:
+        print("ERROR: " +str(e))
+        exit(1)
