@@ -6,7 +6,7 @@ A script which will automate the creation of monero wallets and send transaction
 - Add machine sshkey to github
 ```
 sudo apt update
-sudo apt install jq expect parallel python3 python3-tk bc -y
+sudo apt install jq expect parallel python3 python3-tk bc curl -y
 sudo apt install python3-pip -y
 pip3 install numpy
 cd ~ && wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2
