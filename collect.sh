@@ -70,7 +70,8 @@ EOL
     #  Check if there are any transactions ( if len() = 1 then its just the csv header)
     if [[ $(wc -l < cli_export_"$walletAddr".csv) -gt 1 ]];then
       #  Get the minimum block height by sorting the blocks in exported transaction file from the cli
-      min_block_height="$(cut -f 1 -d ',' < cli_export_"$walletAddr".csv | awk '{print $1}' | sort -u | head -n 1)"
+      first_out_block="$(cut -f 1 -d ',' < cli_export_"$walletAddr".csv | awk '{print $1}' | sort -u | head -n 1)"
+      min_block_height=$(echo "$first_out_block - 100" | bc)
 
       #  Kill any monero-wallet-rpc processes that are still lingering
       echo -en '\033[34mKilling monero-wallet-rpc processes... \033[0m';echo;

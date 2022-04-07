@@ -251,7 +251,7 @@ def combine_files(Wallet_info):
                         tx_hash = xmr2csv_report_csv_values[2].strip()
                         #  Check if the tx hash is in the dataset yet
                         if tx_hash in wallet_tx_data.keys():
-                            wallet_tx_data[tx_hash]['Tx_Version'] = xmr2csv_report_csv_values[4].strip()
+                            wallet_tx_data[tx_hash]['Tx_Version'] = float(xmr2csv_report_csv_values[4].strip())
                             wallet_tx_data[tx_hash]['Tx_Public_Key'] = xmr2csv_report_csv_values[3].strip()
                             wallet_tx_data[tx_hash]['Output_Pub_Key'] = xmr2csv_report_csv_values[8].strip()
                             wallet_tx_data[tx_hash]['Output_Key_Img'] = xmr2csv_report_csv_values[9].strip()
