@@ -14,13 +14,13 @@ REMOTE_NODE="community.rino.io"
 FUNDING_DELAY="600"
 FUNDING_AMOUNT="0.9"
 TERMINAL_TAB_DELAY="60"
-DESKTOP_ENV="xfce4"
+#DESKTOP_ENV="xfce4"
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
 #############################################################################
 
-
+BLOCKCHAIN_HEIGHT=$(curl -H 'Content-Type: application/json' -X GET "https://community.rino.io/explorer/$NETWORK/api/transactions?page=1&limit=1" -s | jq '.data.blocks[].height' -r)
 
 # Ask the user for a number of wallets to make
 read -p "How many wallets would you like (ex. 10)? " numwallets
@@ -59,14 +59,10 @@ send -- "set store-tx-info 1\r"
 expect "Wallet password:*"
 send -- "\r"
 
-####################################################### STAGENET DEBUGGING
-
 expect "wallet*]:*"
-send -- "set refresh-from-block-height 1038960\r"
+send -- "set refresh-from-block-height $BLOCKCHAIN_HEIGHT\r"
 expect "Wallet password:*"
 send -- "\r"
-
-#######################################################
 
 expect "wallet*]:*"
 send -- "exit\r"
@@ -99,14 +95,10 @@ send -- "set store-tx-info 1\r"
 expect "Wallet password:*"
 send -- "\r"
 
-####################################################### STAGENET DEBUGGING
-
 expect "wallet*]:*"
-send -- "set refresh-from-block-height 1038960\r"
+send -- "set refresh-from-block-height $BLOCKCHAIN_HEIGHT\r"
 expect "Wallet password:*"
 send -- "\r"
-
-#######################################################
 
 expect "wallet*]:*"
 send -- "exit\r"
@@ -132,7 +124,6 @@ done < <(find ./Wallets -mindepth 1 -type d | sort -u)
 
 
 
-
 #  Refresh the funding wallet before use
 cat > ./$NETWORK-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
@@ -141,16 +132,10 @@ spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Fundin
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
-
-####################################################### STAGENET DEBUGGING
-
 expect "wallet*]:*"
-send -- "set refresh-from-block-height 1038960\r"
+send -- "set refresh-from-block-height 1038000\r"
 expect "Wallet password:*"
 send -- "\r"
-
-#######################################################
-
 expect "wallet*]:*"
 send -- "rescan_bc hard\r"
 expect "Rescan anyway?  (Y/Yes/N/No):*"
@@ -205,7 +190,10 @@ done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
 
 
 
-
+# Kill any previous sessions
+tmux kill-session -t run-sh 2> /dev/null
+# Start a tmux server
+tmux new-session -d -s run-sh
 
 # Start Transfers
 while read dir ;do  # Loop each directory
@@ -261,8 +249,12 @@ EOL
 		chmod 777 ./$walletName-spend.exp
 		#  A one-liner that took forever to make because nested string interpolation is a pain
 		#  Open a new terminal tab -> Run the script to send a transaction of a random amount and random priority taken from real user distribution -> print time / transaction # -> sleep a random time selected from gamma distribution -> repeat
-                ${DESKTOP_ENV}-terminal --tab -x /bin/bash -c "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"
-                #  A delay of opening a new tab to not overload the server. Most wallets will have to scan the network for a while before transacting
+		#  OLD VERSION
+    #  ${DESKTOP_ENV}-terminal --tab -x /bin/bash -c "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"
+    #  NEW VERSION
+    #  https://unix.stackexchange.com/questions/515935/tmux-how-to-specify-session-in-new-window
+    tmux new-window -t run-sh: "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"
+    #  A delay of opening a new tab to not overload the server. Most wallets will have to scan the network for a while before transacting
 		sleep $TERMINAL_TAB_DELAY
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - || exit # Reset the directory

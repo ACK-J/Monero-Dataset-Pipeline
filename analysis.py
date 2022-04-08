@@ -77,7 +77,7 @@ def gradient_boosted(X_train, X_test, y_train, y_test):
     #     print("Accuracy score (validation): {0:.3f}".format(gb_clf.score(X_test, y_test)))
 
 
-    # model = GradientBoostingClassifier(n_estimators=100, learning_rate=.3, max_depth=2, random_state=RANDOM_STATE).fit(X_train, y_train)
+    model = GradientBoostingClassifier(n_estimators=100, learning_rate=.3, max_depth=2, random_state=RANDOM_STATE).fit(X_train, y_train)
     # #  Train the model
     # in_sample_accuracy = model.fit(X_train, y_train).score(X_train, y_train)
 
