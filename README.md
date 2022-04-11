@@ -29,6 +29,13 @@ rescan_bc soft
 
 `find . -name "*cli_export*.csv" | xargs cat | wc -l`
 
+# Debugging Large Amounts of Wallets (too many open files)
+```
+ulimit -a
+# Add this to .bashrc
+ulimit -n 10240
+```
+
 # Sample from Gamma Distribution
 ```
 from math import exp
