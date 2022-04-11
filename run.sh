@@ -12,7 +12,7 @@ NETWORK="stagenet"  # Case-sensitive (make all lowercase)
 if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 REMOTE_NODE="community.rino.io"
 FUNDING_DELAY="600"
-FUNDING_AMOUNT="0.9"
+FUNDING_AMOUNT="1"
 TERMINAL_TAB_DELAY="60"
 
 #############################################################################
@@ -136,9 +136,7 @@ send -- "set refresh-from-block-height 1038000\r"
 expect "Wallet password:*"
 send -- "\r"
 expect "wallet*]:*"
-send -- "rescan_bc hard\r"
-expect "Rescan anyway?  (Y/Yes/N/No):*"
-send -- "yes\r"
+send -- "rescan_bc soft\r"
 expect "wallet*]:"
 send -- "exit\r"
 expect eof
@@ -184,7 +182,7 @@ EOL
   #  Run the script
   chmod 777 ./$NETWORK-FundWallet.exp && ./$NETWORK-FundWallet.exp
   echo "Wallet $walletFile Funded!" && date
-  sleep $FUNDING_DELAY # Wait 10 minutes instead of 20
+  sleep $FUNDING_DELAY 
 done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
 
 
