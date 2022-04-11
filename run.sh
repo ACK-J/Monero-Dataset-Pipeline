@@ -14,7 +14,6 @@ REMOTE_NODE="community.rino.io"
 FUNDING_DELAY="600"
 FUNDING_AMOUNT="0.9"
 TERMINAL_TAB_DELAY="60"
-#DESKTOP_ENV="xfce4"
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #

@@ -66,28 +66,51 @@ def random_forest(X_train, X_test, y_train, y_test):
 
 
 def gradient_boosted(X_train, X_test, y_train, y_test):
-    # lr_list = [0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1]
-    #
-    # for learning_rate in lr_list:
-    #     gb_clf = GradientBoostingClassifier(n_estimators=20, learning_rate=learning_rate, max_features=2, max_depth=2, random_state=0)
-    #     gb_clf.fit(X_train, y_train)
-    #
-    #     print("Learning rate: ", learning_rate)
-    #     print("Accuracy score (training): {0:.3f}".format(gb_clf.score(X_train, y_train)))
-    #     print("Accuracy score (validation): {0:.3f}".format(gb_clf.score(X_test, y_test)))
 
+    #  Train the model
+    X_test = X_test.drop(['Tx_Version'], axis=1)
+    X_test = X_test.drop(['xmr2csv_Data_Collection_Time'], axis=1)
+    X_test = X_test.drop(['Block_To_xmr2csv_Time_Delta'], axis=1)
+    X_test = X_test.drop(['Num_Confirmations'], axis=1)
 
-    model = GradientBoostingClassifier(n_estimators=100, learning_rate=.3, max_depth=2, random_state=RANDOM_STATE).fit(X_train, y_train)
-    # #  Train the model
-    # in_sample_accuracy = model.fit(X_train, y_train).score(X_train, y_train)
+    X_train = X_train.drop(['Tx_Version'], axis=1)
+    X_train = X_train.drop(['xmr2csv_Data_Collection_Time'], axis=1)
+    X_train = X_train.drop(['Block_To_xmr2csv_Time_Delta'], axis=1)
+    X_train = X_train.drop(['Num_Confirmations'], axis=1)
 
-    with open("gradient_boosted.pkl", "rb") as fp:
-        model = pickle.load(fp)
+    # for n in [10,50,100,200,300,500]:
+    #     for lr in [.01, .1, .3, .5]:
+    #             model = GradientBoostingClassifier(n_estimators=n, learning_rate=lr, random_state=RANDOM_STATE).fit(X_train, y_train)
+    #             print("\n\n\nLR = ", lr, " Num Est = ", n)
+    #             in_sample_accuracy = model.score(X_train, y_train)
+    #             print("In Sample Accuracy:", in_sample_accuracy)
+    #             test_accuracy = model.score(X_test, y_test)
+    #             print("Test Accuracy:", test_accuracy)
+    # exit()
+
+    model = GradientBoostingClassifier(n_estimators=200, learning_rate=0.1, random_state=RANDOM_STATE).fit(X_train, y_train)
+    in_sample_accuracy = model.fit(X_train, y_train).score(X_train, y_train)
+
+    with open("gradient_boosted_new.pkl", "wb") as fp:
+        pickle.dump(model, fp)
+
+    # with open("gradient_boosted.pkl", "rb") as fp:
+    #     model = pickle.load(fp)
 
     in_sample_accuracy = model.score(X_train, y_train)
     print("\nIn Sample Accuracy:", in_sample_accuracy)
     test_accuracy = model.score(X_test, y_test)
     print("Test Accuracy:", test_accuracy)
+
+    print("\n" + GREEN + "Gradient Boosted Classifier feature importance:" + END)
+    important_features = {}
+    for idx, importance in enumerate(model.feature_importances_):
+        if importance >= 0.005:
+            important_features[X_train.columns[idx]] = importance
+
+    sorted_feat = sorted(important_features.items(), key=lambda x: x[1], reverse=True)
+    for item in sorted_feat:
+        print(GREEN + "{:83s} {:.5f}".format(item[0], item[1]) + END)
 
     # Metrics
     y_predicted = model.predict(X_test)
@@ -171,10 +194,10 @@ def confusion_mtx(y_test, y_pred):
 
 def main():
     X_train, X_test, y_train, y_test = load_data(0.2)
-    print("Training random forest.")
-    random_forest(X_train, X_test, y_train, y_test)
-    # print("Training gradient boosted classifier.")
-    # gradient_boosted(X_train, X_test, y_train, y_test)
+    # print("Training random forest.")
+    # random_forest(X_train, X_test, y_train, y_test)
+    print("Training gradient boosted classifier.")
+    gradient_boosted(X_train, X_test, y_train, y_test)
 
     #xgboost_classifier(X_train, X_test, y_train, y_test)
 
