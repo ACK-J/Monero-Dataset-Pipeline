@@ -12,12 +12,13 @@ NETWORK="stagenet"  # Case-sensitive (make all lowercase)
 if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 REMOTE_NODE="community.rino.io"
 FUNDING_DELAY="1"
-FUNDING_AMOUNT=".1"
-TERMINAL_TAB_DELAY="1"
+FUNDING_AMOUNT=".01"
+TERMINAL_TAB_DELAY="10"
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
 #############################################################################
+export RUN_SH_NETWORK=${NETWORK}
 ulimit -n 10240
 BLOCKCHAIN_HEIGHT=$(curl -H 'Content-Type: application/json' -X GET "https://community.rino.io/explorer/$NETWORK/api/transactions?page=1&limit=1" -s | jq '.data.blocks[].height' -r)
 
@@ -156,10 +157,10 @@ expect eof
 EOL
   #  Run the script
   chmod 777 ./$NETWORK-FundWallet.exp && ./$NETWORK-FundWallet.exp "$walletAddr"
-  echo "Wallet $walletFile Funded!" && date && echo "Sleeping for $FUNDING_DELAY seconds" && echo
+  echo -e "\033[34mWallet $walletFile Funded!" && date && echo -e 'Sleeping for ' $FUNDING_DELAY ' seconds\033[0m'
   sleep $FUNDING_DELAY 
 done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
-
+echo
 
 
 
@@ -167,6 +168,8 @@ done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
 
 # Kill any previous sessions
 tmux kill-session -t run-sh 2> /dev/null
+# Reduce RAM usage
+tmux set-option history-limit 500
 # Start a tmux server
 tmux new-session -d -s run-sh
 
@@ -227,13 +230,13 @@ EOL
 		#  Open a new terminal tab -> Run the script to send a transaction of a random amount and random priority taken from real user distribution -> print time / transaction # -> sleep a random time selected from gamma distribution -> repeat
 		#  OLD VERSION
     #  ${DESKTOP_ENV}-terminal --tab -x /bin/bash -c "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"
-    #  i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done
-    #  NEW VERSION
+    #  OLD VERSION 2
+    #  tmux new-window -t run-sh: "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"    #  NEW VERSION
     #  https://unix.stackexchange.com/questions/515935/tmux-how-to-specify-session-in-new-window
-    echo "Spawned new tmux window ${walletAddr}"
+    echo -e '\033[34mSpawned new tmux window: \033[0m' ${walletAddr}
     tmux new-window -t run-sh: "python3 ../../run.py ${walletName}"
     #  A delay of opening a new tab to not overload the server. Most wallets will have to scan the network for a while before transacting
-    echo "Sleeping for $TERMINAL_TAB_DELAY seconds"
+    echo -e '\033[34mSleeping for: \033[0m' $TERMINAL_TAB_DELAY ' seconds'
 		sleep $TERMINAL_TAB_DELAY
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - || exit # Reset the directory
