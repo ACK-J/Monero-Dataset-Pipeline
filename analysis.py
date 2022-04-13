@@ -35,6 +35,7 @@ def load_data(TEST_SIZE):
     assert X is not None and y is not None
     assert len(X) == len(y)
     print("Dataset of " + str(len(X)) + " samples loaded from disk.")
+    #feature_dist_per_label(X,y)
 
     #  Split the data up traditionally into 80% training and 20% training
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, shuffle=True)
@@ -189,6 +190,157 @@ def confusion_mtx(y_test, y_pred):
     from sklearn.metrics import classification_report
     print('\nClassification Report\n')
     print(classification_report(y_test, y_pred))
+
+
+def feature_dist_per_label(X, y):
+    decoys = {
+        0:0,
+        1:0,
+        2:0,
+        3:0,
+        4:0,
+        5:0,
+        6:0,
+        7:0,
+        8:0,
+        9:0,
+        10:0
+    }
+    decoys_counts = {
+        0:0,
+        1:0,
+        2:0,
+        3:0,
+        4:0,
+        5:0,
+        6:0,
+        7:0,
+        8:0,
+        9:0,
+        10:0
+    }
+    true = {
+        0:0,
+        1:0,
+        2:0,
+        3:0,
+        4:0,
+        5:0,
+        6:0,
+        7:0,
+        8:0,
+        9:0,
+        10:0
+    }
+    true_counts = {
+        0:0,
+        1:0,
+        2:0,
+        3:0,
+        4:0,
+        5:0,
+        6:0,
+        7:0,
+        8:0,
+        9:0,
+        10:0
+    }
+    new_X = X.to_dict('index')
+    del X
+    for y_idx in range(len(new_X)):
+        tx = new_X[y_idx]
+        true_spend = y[y_idx]
+        base = tx["Inputs.0.Time_Delta_From_Newest_Ring_To_Block"]
+        zero_to_one = tx["Inputs.0.Time_Deltas_Between_Ring_Members.0_1"]
+        one_to_two = tx["Inputs.0.Time_Deltas_Between_Ring_Members.1_2"]
+        two_to_three = tx["Inputs.0.Time_Deltas_Between_Ring_Members.2_3"]
+        three_to_four = tx["Inputs.0.Time_Deltas_Between_Ring_Members.3_4"]
+        four_to_five = tx["Inputs.0.Time_Deltas_Between_Ring_Members.4_5"]
+        five_to_six = tx["Inputs.0.Time_Deltas_Between_Ring_Members.5_6"]
+        six_to_seven = tx["Inputs.0.Time_Deltas_Between_Ring_Members.6_7"]
+        seven_to_eight = tx["Inputs.0.Time_Deltas_Between_Ring_Members.7_8"]
+        eight_to_nine = tx["Inputs.0.Time_Deltas_Between_Ring_Members.8_9"]
+        nine_to_ten = tx["Inputs.0.Time_Deltas_Between_Ring_Members.9_10"]
+        if true_spend == 1:
+            true[0] += base
+            true_counts[0] += 1
+        elif true_spend != 1:
+            decoys[0] += base
+            decoys_counts[0] += 1
+
+        if true_spend == 2:
+            true[1] += base + zero_to_one
+            true_counts[1] += 1
+        elif true_spend != 2:
+            decoys[1] += base + zero_to_one
+            decoys_counts[1] += 1
+
+        if true_spend == 3:
+            true[2] += base + zero_to_one + one_to_two
+            true_counts[2] += 1
+        elif true_spend != 3:
+            decoys[2] += base + zero_to_one + one_to_two
+            decoys_counts[2] += 1
+
+        if true_spend == 4:
+            true[3] += base + zero_to_one + one_to_two + two_to_three
+            true_counts[3] += 1
+        elif true_spend != 4:
+            decoys[3] += base + zero_to_one + one_to_two + two_to_three
+            decoys_counts[3] += 1
+
+        if true_spend == 5:
+            true[4] += base + zero_to_one + one_to_two + two_to_three + three_to_four
+            true_counts[4] += 1
+        elif true_spend != 5:
+            decoys[4] += base + zero_to_one + one_to_two + two_to_three + three_to_four
+            decoys_counts[4] += 1
+
+        if true_spend == 6:
+            true[5] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five
+            true_counts[5] += 1
+        elif true_spend != 6:
+            decoys[5] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five
+            decoys_counts[5] += 1
+
+        if true_spend == 7:
+            true[6] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six
+            true_counts[6] += 1
+        elif true_spend != 7:
+            decoys[6] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six
+            decoys_counts[6] += 1
+
+        if true_spend == 8:
+            true[7] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six + six_to_seven
+            true_counts[7] += 1
+        elif true_spend != 8:
+            decoys[7] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six + six_to_seven
+            decoys_counts[7] += 1
+
+        if true_spend == 9:
+            true[8] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six + six_to_seven + seven_to_eight
+            true_counts[8] += 1
+        elif true_spend != 9:
+            decoys[8] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six + six_to_seven + seven_to_eight
+            decoys_counts[8] += 1
+
+        if true_spend == 10:
+            true[9] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six + six_to_seven + seven_to_eight + eight_to_nine
+            true_counts[9] += 1
+        elif true_spend != 10:
+            decoys[9] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six + six_to_seven + seven_to_eight + eight_to_nine
+            decoys_counts[9] += 1
+
+        if true_spend == 11:
+            true[10] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six + six_to_seven + seven_to_eight + eight_to_nine + nine_to_ten
+            true_counts[10] += 1
+        elif true_spend != 11:
+            decoys[10] += base + zero_to_one + one_to_two + two_to_three + three_to_four + four_to_five + five_to_six + six_to_seven + seven_to_eight + eight_to_nine + nine_to_ten
+            decoys_counts[10] += 1
+    print(true)
+    print(true_counts)
+    print(decoys)
+    print(decoys_counts)
 
 
 
