@@ -12,8 +12,8 @@ NETWORK="stagenet"  # Case-sensitive (make all lowercase)
 if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 REMOTE_NODE="community.rino.io"
 FUNDING_DELAY="1"
-FUNDING_AMOUNT=".01"
-TERMINAL_TAB_DELAY="10"
+FUNDING_AMOUNT=".001"
+TERMINAL_TAB_DELAY="30"
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
@@ -28,6 +28,9 @@ cd "./Wallets" || exit
 # Create the directories which will store 2 wallets each
 for i in `seq $(($numwallets / 2))`; do mkdir $i; done
 cd - || exit
+
+
+
 
 
 
@@ -76,10 +79,6 @@ EOL
 
 chmod 777 ./Wallets/MakeWallet.exp
 
-
-
-
-
 # Make 2 wallets per folder
 while read dir
 do
@@ -89,6 +88,9 @@ do
 	../MakeWallet.exp "Wallet2"
 	cd - || exit
 done < <(find ./Wallets -mindepth 1 -type d | sort -u)
+
+
+
 
 
 
@@ -120,11 +122,14 @@ done < <(find ./Wallets -mindepth 1 -type d | sort -u)
 
 
 
+
+
+
 # Fund the wallets (This part is slow but no real way around it)
 while read walletFile; do
   walletAddr=$(cat "$walletFile") #  Get the wallet addr from the txt file
   # Make a new expect script substituting the addr to fund the wallet
-  cat > ./$NETWORK-FundWallet.exp <<EOL
+  cat > ./${NETWORK}-FundWallet.exp <<EOL
 #!/usr/bin/expect -f
 if {[llength \$argv] != 1} {
   puts stderr "Usage: Pass a wallet address!"
@@ -158,20 +163,25 @@ EOL
   #  Run the script
   chmod 777 ./$NETWORK-FundWallet.exp && ./$NETWORK-FundWallet.exp "$walletAddr"
   echo -e "\033[34mWallet $walletFile Funded!" && date && echo -e 'Sleeping for ' $FUNDING_DELAY ' seconds\033[0m'
-  sleep $FUNDING_DELAY 
+  sleep $FUNDING_DELAY
+  echo ""
 done < <(find ./Wallets/ -type f -name "*.txt" | sort -u)
-echo
+echo ""
+
+
+
 
 
 
 
 
 # Kill any previous sessions
-tmux kill-session -t run-sh 2> /dev/null
-# Reduce RAM usage
-tmux set-option history-limit 500
+tmux kill-session -t run-sh &> /dev/null
+sleep 1
 # Start a tmux server
 tmux new-session -d -s run-sh
+# Reduce RAM usage
+tmux set-option -g history-limit 100
 
 # Start Transfers
 while read dir ;do  # Loop each directory
@@ -195,8 +205,8 @@ if {[llength \$argv] != 3} {
   puts stderr "Usage: Pass an amount, priority and walletID as arguments!"
   exit 1
 }
-set timeout 21600
-set amount [lindex \$argv 0];   # 0.0001 -> .000000000001
+set timeout 10800
+set amount [lindex \$argv 0];     # 0.0001 -> .000000000001
 set priority [lindex \$argv 1];   # 1 -> 4
 set walletID [lindex \$argv 2];   # string to append to wallet name ( can be empty "" )
 spawn monero-wallet-cli --$NETWORK --wallet ./${walletName}\$walletID --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
@@ -236,7 +246,7 @@ EOL
     echo -e '\033[34mSpawned new tmux window: \033[0m' ${walletAddr}
     tmux new-window -t run-sh: "python3 ../../run.py ${walletName}"
     #  A delay of opening a new tab to not overload the server. Most wallets will have to scan the network for a while before transacting
-    echo -e '\033[34mSleeping for: \033[0m' $TERMINAL_TAB_DELAY ' seconds'
+    echo -e '\033[34mSleeping for: \033[0m\t\t ' $TERMINAL_TAB_DELAY ' seconds'
 		sleep $TERMINAL_TAB_DELAY
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - || exit # Reset the directory
