@@ -6,7 +6,7 @@ from subprocess import Popen, PIPE, TimeoutExpired
 from sys import argv
 from random import randint
 from colorama import Fore, Style
-from os import getenv, getcwd, remove
+from os import getenv, getcwd, remove, system
 from uuid import uuid4
 
 NETWORK = getenv('RUN_SH_NETWORK')
@@ -26,27 +26,42 @@ def runcommand(cmd):
     :param cmd:
     :return:
     """
-    proc = None
-    while proc is None:
+    std_out = None
+    while std_out is None:
         try:
             proc = Popen(cmd,
                         stdout=PIPE,
                         stderr=PIPE,
                         shell=True,
                         universal_newlines=True)
-            std_out, std_err = proc.communicate(timeout=3600)
-        except TimeoutExpired as e:
-            print(Fore.RED + "Warning: Transaction timed out, restarting!" + Style.RESET_ALL)
-    return proc.returncode, std_out, std_err
+            std_out, std_err = proc.communicate(timeout=300)
+            return proc.returncode, std_out, std_err
+        except TimeoutExpired:
+            print(Fore.RED + "Warning: Transaction timed out!" + Style.RESET_ALL)
+            # Send CTRL C to any processes with the keys file open
+            # https://superuser.com/questions/97844/how-can-i-determine-what-process-has-a-file-open-in-linux
+            system("fuser ./" + str(argv[1]) + ".keys  2> /dev/null | xargs -I{} kill -2 {} 2> /dev/null")
+            sleep(1)
 
 
 def delete_wallet(wallet_name):
-    print(Fore.GREEN + "Deleting " + wallet_name + " since it never transacted!" + Style.RESET_ALL)
-    remove("./" + wallet_name)
-    print(Fore.GREEN + "Deleting " + wallet_name + ".adddress.txt since it never transacted!" + Style.RESET_ALL)
-    remove("./" + wallet_name + ".adddress.txt")
-    print(Fore.GREEN + "Deleting " + wallet_name + ".keys since it never transacted!" + Style.RESET_ALL)
-    remove("./" + wallet_name + ".keys")
+    try:
+        print(Fore.GREEN + "Deleting " + wallet_name + " since it never transacted!" + Style.RESET_ALL)
+        remove("./" + wallet_name)
+    except FileNotFoundError as e:
+        pass
+
+    try:
+        print(Fore.GREEN + "Deleting " + wallet_name + ".address.txt since it never transacted!" + Style.RESET_ALL)
+        remove("./" + wallet_name + ".address.txt")
+    except FileNotFoundError as e:
+        pass
+
+    try:
+        print(Fore.GREEN + "Deleting " + wallet_name + ".keys since it never transacted!" + Style.RESET_ALL)
+        remove("./" + wallet_name + ".keys")
+    except FileNotFoundError as e:
+        pass
 
 
 def main():
@@ -59,6 +74,7 @@ def main():
     rate = 1.61
     # The time to stop collection in epoch
     endtime_epoch = datetime.fromtimestamp(1656637261)  # June 30th
+    endtime_epoch = datetime.fromtimestamp(int(time())) + timedelta(seconds=259200)
     # The wallet ID starts off blank but if a new wallet needs to be made it will be changed
     current_wallet_id = ""
     # A one line bash command that will call the spend Expect script with an amount, priority and wallet id
@@ -69,18 +85,19 @@ def main():
     sleep(1380)
 
     # Metrics
-    total_transfers = 0
-    curr_wallet_transfers = 0
-    num_extra_wallets = 0
+    total_transfers = 0         # Total transactions made for the current process
+    curr_wallet_transfers = 0   # Total transactions made by the current wallet
+    num_extra_wallets = 0       # Number of wallets made by the current process
 
     # If the funding wallet is open send it CTRL-C
     _, num_open_files, _ = runcommand("lsof | grep -i " + NETWORK + "-Funding.keys | wc -l")
     if num_open_files.split()[0] != "0":
-        _, _, _ = runcommand("ps aux | grep -i " + NETWORK + "-Funding.keys | awk '{print $2}' | xargs kill -2 ")
+        system("ps aux | grep -i " + NETWORK + "-Funding.keys | awk '{print $2}' | xargs -I{} kill -2 {} 2> /dev/null")
         sleep(3)
 
     while True:
         print(getcwd())
+        print(Fore.BLUE + "Current Time: " + str(datetime.fromtimestamp(int(time()))) + Style.RESET_ALL)
         #  Sleep a random value chosen at random from a gamma dist + 1200 seconds for the 20 min lockout
         sample = int(exp(random.gamma(shape, 1.0 / rate, 1))) + 1200
         # Calculate the date + time when the sleeping will be done
@@ -94,11 +111,13 @@ def main():
                 delete_wallet(argv[1] + current_wallet_id)
             # Dont make any new wallets 2 days before the end date
             if datetime.fromtimestamp(int(time())) > (endtime_epoch - timedelta(seconds=172800)):
-                print("EXIT: End date less then 48 hours away.")
+                print(Fore.RED + "EXIT: End date less then 48 hours away." + Style.RESET_ALL)
+                sleep(120)
                 exit(1)
             # check if the process is making a ton of wallets
             if num_extra_wallets > 100:
-                print("EXIT: Current process made more than 100 wallets.")
+                print(Fore.RED + "EXIT: Current process made more than 100 wallets." + Style.RESET_ALL)
+                sleep(120)
                 exit(1)
 
             print(Fore.RED + "Sleep time surpassed the end time. Making a new wallet!" + Style.RESET_ALL)
@@ -114,24 +133,21 @@ def main():
             print(Fore.BLUE + "Making new Wallet..." + Style.RESET_ALL)
             current_wallet_id = get_new_wallet_id()
             # Call makewallet.exp and pass the wallet name with the wallet id
-            returncode, std_out, std_err = runcommand("../MakeWallet.exp " + argv[1] + current_wallet_id)
-            print(std_out)
-            print(std_err)
+            system("../MakeWallet.exp " + argv[1] + current_wallet_id)
 
+            _, walletAddr, _ = runcommand("cat " + argv[1] + current_wallet_id + ".address.txt")
             # Check to see if another process has the funding wallet open
             print(Fore.BLUE + "Checking if another program is using the funding wallet..." + Style.RESET_ALL)
-            _, walletAddr, _ = runcommand("cat " + argv[1] + current_wallet_id + ".address.txt")
             sleep(randint(2, 20))
             _, num_open_files, _ = runcommand("lsof | grep -i " + NETWORK + "-Funding.keys | wc -l")
             while num_open_files.split()[0] != "0":
+                print(Fore.RED + "Warning: funding wallet is open! Sleeping and then retrying." + Style.RESET_ALL)
                 sleep(randint(2, 20))
                 _, num_open_files, _ = runcommand("lsof | grep -i " + NETWORK + "-Funding.keys | wc -l")
 
             #  Fund the new wallet
             print(Fore.BLUE + "Funding the new wallet..." + Style.RESET_ALL)
-            returncode, std_out, std_err = runcommand("../../" + NETWORK + "-FundWallet.exp " + walletAddr.strip() + ' | grep -v "Height*/*" | grep -v "Height*txid*"')
-            print(std_out)
-            print(std_err)
+            system("../../" + NETWORK + "-FundWallet.exp " + walletAddr.strip() + ' | grep -v "Height*/*" | grep -v "Height*txid*"')
 
             #  Wait 20 mins for the new coins to be usable
             print(Fore.BLUE + "Sleep for 20 mins to unlock new coins." + Style.RESET_ALL)
@@ -140,9 +156,10 @@ def main():
             #  Transfer a random amount of coins to the other wallet
             print(Fore.BLUE + "Executing a transfer..." + Style.RESET_ALL)
             oneliner = './' + argv[1] + """-spend.exp $(python3 -c 'import random;print(format(random.uniform(0.0001, 0.000000000001), ".12f"))') $(python3 -c 'import random;print(random.randint(1,4))') """ + '"' + current_wallet_id + '" ' + ' | grep -v "Height*/*"'
-            returncode, std_out, std_err = runcommand(oneliner)
-            print(std_out)
-            print(std_err)
+            # Send CTRL C to any processes with the keys file open
+            # https://superuser.com/questions/97844/how-can-i-determine-what-process-has-a-file-open-in-linux
+            system("fuser ./" + str(argv[1]) + ".keys  2> /dev/null | xargs -I{} kill -2 {} 2> /dev/null")
+            system(oneliner)
 
             # Metrics
             curr_wallet_transfers += 1
@@ -169,9 +186,10 @@ def main():
         else:  # Sleep time is within the collection time
             print(Fore.BLUE + "Sleep was less than the end time!" + Style.RESET_ALL)
             print(Fore.BLUE + "Executing a transfer..." + Style.RESET_ALL)
-            returncode, std_out, std_err = runcommand(oneliner)
-            print(std_out)
-            print(std_err)
+            # Send CTRL C to any processes with the keys file open
+            # https://superuser.com/questions/97844/how-can-i-determine-what-process-has-a-file-open-in-linux
+            system("fuser ./" + str(argv[1]) + ".keys  2> /dev/null | xargs -I{} kill -2 {} 2> /dev/null")
+            system(oneliner)
 
             # Metrics
             curr_wallet_transfers += 1
@@ -190,4 +208,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        print(e)
+        print(traceback.print_exc())
+        sleep(1200000)

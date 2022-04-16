@@ -11,8 +11,8 @@
 NETWORK="stagenet"  # Case-sensitive (make all lowercase)
 if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 REMOTE_NODE="community.rino.io"
-FUNDING_DELAY="1"
-FUNDING_AMOUNT=".001"
+FUNDING_DELAY="10"
+FUNDING_AMOUNT="1"
 TERMINAL_TAB_DELAY="30"
 
 #############################################################################
@@ -181,7 +181,7 @@ sleep 1
 # Start a tmux server
 tmux new-session -d -s run-sh
 # Reduce RAM usage
-tmux set-option -g history-limit 100
+tmux set-option -g history-limit 50
 
 # Start Transfers
 while read dir ;do  # Loop each directory
