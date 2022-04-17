@@ -67,7 +67,7 @@ def delete_wallet(wallet_name):
 def main():
     # Error Checking
     if len(argv) != 2:
-        print("Usage Error: ./run.py < Wallets Name >")
+        print("Usage Error: ./spawn.py < Wallets Name >")
         exit(1)
     # Gamma Parameters
     shape = 19.28

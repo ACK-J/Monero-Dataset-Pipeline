@@ -244,7 +244,7 @@ EOL
     #  tmux new-window -t run-sh: "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"    #  NEW VERSION
     #  https://unix.stackexchange.com/questions/515935/tmux-how-to-specify-session-in-new-window
     echo -e '\033[34mSpawned new tmux window: \033[0m' ${walletAddr}
-    tmux new-window -t run-sh: "python3 ../../run.py ${walletName}"
+    tmux new-window -t run-sh: "python3 ../../spawn.py ${walletName}"
     #  A delay of opening a new tab to not overload the server. Most wallets will have to scan the network for a while before transacting
     echo -e '\033[34mSleeping for: \033[0m\t\t ' $TERMINAL_TAB_DELAY ' seconds'
 		sleep $TERMINAL_TAB_DELAY
