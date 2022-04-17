@@ -11,9 +11,9 @@
 NETWORK="stagenet"  # Case-sensitive (make all lowercase)
 if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 REMOTE_NODE="community.rino.io"
-FUNDING_DELAY="10"
-FUNDING_AMOUNT="1"
-TERMINAL_TAB_DELAY="30"
+FUNDING_DELAY="1"
+FUNDING_AMOUNT=".1"
+TERMINAL_TAB_DELAY="10"
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #

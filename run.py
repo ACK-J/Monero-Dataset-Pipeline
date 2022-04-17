@@ -89,13 +89,13 @@ def main():
     curr_wallet_transfers = 0   # Total transactions made by the current wallet
     num_extra_wallets = 0       # Number of wallets made by the current process
 
-    # If the funding wallet is open send it CTRL-C
-    _, num_open_files, _ = runcommand("lsof | grep -i " + NETWORK + "-Funding.keys | wc -l")
-    if num_open_files.split()[0] != "0":
-        system("ps aux | grep -i " + NETWORK + "-Funding.keys | awk '{print $2}' | xargs -I{} kill -2 {} 2> /dev/null")
-        sleep(3)
+    # Remove the lockfile from previous runs to prevent issues
+    try:
+        remove("../../lockfile")
+    except FileNotFoundError as e:
+        pass
 
-    while True:
+    while True:  # infinitely transact
         print(getcwd())
         print(Fore.BLUE + "Current Time: " + str(datetime.fromtimestamp(int(time()))) + Style.RESET_ALL)
         #  Sleep a random value chosen at random from a gamma dist + 1200 seconds for the 20 min lockout
@@ -136,21 +136,15 @@ def main():
             system("../MakeWallet.exp " + argv[1] + current_wallet_id)
 
             _, walletAddr, _ = runcommand("cat " + argv[1] + current_wallet_id + ".address.txt")
-            # Check to see if another process has the funding wallet open
-            print(Fore.BLUE + "Checking if another program is using the funding wallet..." + Style.RESET_ALL)
-            sleep(randint(2, 20))
-            _, num_open_files, _ = runcommand("lsof | grep -i " + NETWORK + "-Funding.keys | wc -l")
-            while num_open_files.split()[0] != "0":
-                print(Fore.RED + "Warning: funding wallet is open! Sleeping and then retrying." + Style.RESET_ALL)
-                sleep(randint(2, 20))
-                _, num_open_files, _ = runcommand("lsof | grep -i " + NETWORK + "-Funding.keys | wc -l")
 
             #  Fund the new wallet
             print(Fore.BLUE + "Funding the new wallet..." + Style.RESET_ALL)
-            system("../../" + NETWORK + "-FundWallet.exp " + walletAddr.strip() + ' | grep -v "Height*/*" | grep -v "Height*txid*"')
+            # https://gavv.github.io/articles/file-locks/
+            # https://dmorgan.info/posts/linux-lock-files/
+            system("flock ../../lockfile ../../" + NETWORK + "-FundWallet.exp " + walletAddr.strip() + ' | grep -v "Height*/*" | grep -v "Height*txid*"')
 
             #  Wait 20 mins for the new coins to be usable
-            print(Fore.BLUE + "Sleep for 20 mins to unlock new coins." + Style.RESET_ALL)
+            print(Fore.BLUE + "Sleep for 20 minutes to unlock new coins." + Style.RESET_ALL)
             sleep(1380)
 
             #  Transfer a random amount of coins to the other wallet
