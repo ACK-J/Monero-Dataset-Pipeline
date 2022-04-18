@@ -12,13 +12,15 @@ NETWORK="stagenet"  # Case-sensitive (make all lowercase)
 if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
 REMOTE_NODE="community.rino.io"
 FUNDING_DELAY="1"
-FUNDING_AMOUNT=".1"
+FUNDING_AMOUNT=".01"
 TERMINAL_TAB_DELAY="10"
+END_COLLECTION_EPOCH_DATE="1656637261"   # Must be in epoch time
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
 #############################################################################
 export RUN_SH_NETWORK=${NETWORK}
+export END_COLLECTION_EPOCH_DATE=${END_COLLECTION_EPOCH_DATE}
 ulimit -n 10240
 BLOCKCHAIN_HEIGHT=$(curl -H 'Content-Type: application/json' -X GET "https://community.rino.io/explorer/$NETWORK/api/transactions?page=1&limit=1" -s | jq '.data.blocks[].height' -r)
 
@@ -208,8 +210,7 @@ if {[llength \$argv] != 3} {
 set timeout 10800
 set amount [lindex \$argv 0];     # 0.0001 -> .000000000001
 set priority [lindex \$argv 1];   # 1 -> 4
-set walletID [lindex \$argv 2];   # string to append to wallet name ( can be empty "" )
-spawn monero-wallet-cli --$NETWORK --wallet ./${walletName}\$walletID --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --$NETWORK --wallet ./${walletName} --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
 match_max 10000
 expect "Wallet password: "
 send -- "\r"
@@ -243,7 +244,7 @@ EOL
     #  OLD VERSION 2
     #  tmux new-window -t run-sh: "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"    #  NEW VERSION
     #  https://unix.stackexchange.com/questions/515935/tmux-how-to-specify-session-in-new-window
-    echo -e '\033[34mSpawned new tmux window: \033[0m' ${walletAddr}
+    echo -e '\033[34mSpawned new tmux window: \033[0m' "${walletAddr}"
     tmux new-window -t run-sh: "python3 ../../spawn.py ${walletName}"
     #  A delay of opening a new tab to not overload the server. Most wallets will have to scan the network for a while before transacting
     echo -e '\033[34mSleeping for: \033[0m\t\t ' $TERMINAL_TAB_DELAY ' seconds'
