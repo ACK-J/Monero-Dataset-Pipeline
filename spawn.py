@@ -45,8 +45,7 @@ def main():
     rate = 1.61
 
     # The time to stop collection in epoch
-    endtime_epoch = datetime.fromtimestamp(int(END_COLLECTION_EPOCH_DATE))  # June 30th
-    endtime_epoch = datetime.fromtimestamp(int(time())) + timedelta(seconds=(259200/2))
+    endtime_epoch = datetime.fromtimestamp(int(END_COLLECTION_EPOCH_DATE))
 
     # A one line bash command that will call the spend Expect script with an amount, priority and wallet id
     oneliner = './' + argv[1] + """-spend.exp $(python3 -c 'import random;print(format(random.uniform(0.0001, 0.000000000001), ".12f"))') $(python3 -c 'import random;print(random.randint(1,4))') """ + ' | grep -v "Height*/*"'

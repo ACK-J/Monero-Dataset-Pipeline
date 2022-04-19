@@ -14,7 +14,7 @@ REMOTE_NODE="community.rino.io"
 FUNDING_DELAY="1"
 FUNDING_AMOUNT=".01"
 TERMINAL_TAB_DELAY="10"
-END_COLLECTION_EPOCH_DATE="1656637261"   # Must be in epoch time
+END_COLLECTION_EPOCH_DATE="1656637261"   # Must be in epoch time (July 1st)
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
@@ -98,26 +98,26 @@ done < <(find ./Wallets -mindepth 1 -type d | sort -u)
 
 
 
-##  Refresh the funding wallet before use
-#cat > ./$NETWORK-FundWallet.exp <<EOL
-##!/usr/bin/expect -f
-#set timeout -1
-#spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Funding --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
-#match_max 10000
-#expect "Wallet password: "
-#send -- "\r"
-#expect "wallet*]:*"
-#send -- "set refresh-from-block-height 1038000\r"
-#expect "Wallet password:*"
-#send -- "\r"
-#expect "wallet*]:*"
-#send -- "rescan_bc soft\r"
-#expect "wallet*]:"
-#send -- "exit\r"
-#expect eof
-#EOL
-##  Run the script
-#chmod 777 ./$NETWORK-FundWallet.exp && ./$NETWORK-FundWallet.exp
+#  Refresh the funding wallet before use
+cat > ./$NETWORK-FundWallet.exp <<EOL
+#!/usr/bin/expect -f
+set timeout -1
+spawn monero-wallet-cli --$NETWORK --wallet ./Funding_Wallets/${NETWORK^}-Funding --daemon-address $NETWORK.$REMOTE_NODE:$PORT --log-file /dev/null --trusted-daemon
+match_max 10000
+expect "Wallet password: "
+send -- "\r"
+expect "wallet*]:*"
+send -- "set refresh-from-block-height 1038000\r"
+expect "Wallet password:*"
+send -- "\r"
+expect "wallet*]:*"
+send -- "rescan_bc soft\r"
+expect "wallet*]:"
+send -- "exit\r"
+expect eof
+EOL
+#  Run the script
+chmod 777 ./$NETWORK-FundWallet.exp && ./$NETWORK-FundWallet.exp
 
 
 
