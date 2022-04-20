@@ -203,8 +203,8 @@ while read dir ;do  # Loop each directory
     # Write an expect script substituting the wallet name and addr
     cat > ./$walletName-spend.exp <<EOL
 #!/usr/bin/expect -f
-if {[llength \$argv] != 3} {
-  puts stderr "Usage: Pass an amount, priority and walletID as arguments!"
+if {[llength \$argv] != 2} {
+  puts stderr "Usage: Pass an amount and priority as arguments!"
   exit 1
 }
 set timeout 10800
