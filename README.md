@@ -1,4 +1,4 @@
-# Frodo: XMR-Transaction-Automation
+# XMR-Transaction-Automation
 A script which will automate the creation of monero wallets and send transactions back and forth between them. The main purpose of this script is to create as many transactions as possible to later extract wallet information into a dataset
 
 
@@ -61,7 +61,10 @@ stagenet.community.rino.io
 ```
 
 # Diagrams
+![Ring Members](https://user-images.githubusercontent.com/60232273/165125319-eb7f7181-b9a2-4c77-8d79-5a332de9e8c3.png)
+![run.sh](https://user-images.githubusercontent.com/60232273/165125440-dcd45d20-e4a6-401d-a9d0-57b56a90cb68.png)
+![collect.sh](https://user-images.githubusercontent.com/60232273/165125464-a08958b8-140c-4fa8-af29-67fa39613d65.png)
+![creat_dataset.py](https://user-images.githubusercontent.com/60232273/165125480-fbf94b36-a8bc-4255-bb78-259b542712f2.png)
 
-![run](https://user-images.githubusercontent.com/60232273/159022433-a8f371fc-2a5d-4d97-a8ec-88aa6eba759f.png)
-![collect](https://user-images.githubusercontent.com/60232273/159022449-a2f0506c-7423-4283-82a5-98d54463175e.png)
-![create](https://user-images.githubusercontent.com/60232273/159022486-56a2647d-2b2e-42e5-98bb-2fe583cd28e8.png)
+
+
