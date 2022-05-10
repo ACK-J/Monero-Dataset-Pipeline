@@ -342,14 +342,68 @@ def feature_dist_per_label(X, y):
     print(decoys)
     print(decoys_counts)
 
+def MLP(X_train, X_test, y_train, y_test):
+    import tensorflow as tf
+    from keras.models import Sequential
+    from keras.layers import Dense, Activation, Dropout
+    from sklearn.preprocessing import StandardScaler
+    from keras.utils import np_utils
+    from sklearn.model_selection import cross_val_score
+    from sklearn.model_selection import KFold
 
+    X_test = X_test.drop(['Tx_Version'], axis=1)
+    X_test = X_test.drop(['xmr2csv_Data_Collection_Time'], axis=1)
+    X_test = X_test.drop(['Block_To_xmr2csv_Time_Delta'], axis=1)
+    X_test = X_test.drop(['Num_Confirmations'], axis=1)
+
+    X_train = X_train.drop(['Tx_Version'], axis=1)
+    X_train = X_train.drop(['xmr2csv_Data_Collection_Time'], axis=1)
+    X_train = X_train.drop(['Block_To_xmr2csv_Time_Delta'], axis=1)
+    X_train = X_train.drop(['Num_Confirmations'], axis=1)
+
+    y_test = np.asarray(y_test)
+    y_train = np.asarray(y_train)
+    y_test = np_utils.to_categorical(y_test)
+    y_train = np_utils.to_categorical(y_train)
+    y_test = np.delete(y_test, 0, 1)
+    y_train = np.delete(y_train, 0, 1)
+
+    scaler = StandardScaler().fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+
+
+
+    model = Sequential()
+    model.add(Dense(11, input_shape=(1965,), activation='relu'))
+    model.add(Dense(32, activation='relu'))
+    model.add(Dropout(.1))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dense(128, activation='relu'))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dropout(.3))
+    model.add(Dense(32, activation='relu'))
+    model.add(Dropout(.2))
+    model.add(Dense(11))
+    model.add(Activation('softmax'))
+    model.summary()
+
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    model.fit(X_train, y_train, epochs=100, batch_size=64)
+    y_pred = model.predict(X_test)
+    score = model.evaluate(X_test, y_test, verbose=1)
+    print(score[1])
+    kfold = KFold(n_splits=10, shuffle=True)
+    results = cross_val_score(model, X_test, y_test, cv=kfold)
+    print("Baseline: %.2f%% (%.2f%%)" % (results.mean() * 100, results.std() * 100))
 
 def main():
     X_train, X_test, y_train, y_test = load_data(0.2)
     # print("Training random forest.")
     # random_forest(X_train, X_test, y_train, y_test)
-    print("Training gradient boosted classifier.")
-    gradient_boosted(X_train, X_test, y_train, y_test)
+    # print("Training gradient boosted classifier.")
+    # gradient_boosted(X_train, X_test, y_train, y_test)
+    MLP(X_train, X_test, y_train, y_test)
 
     #xgboost_classifier(X_train, X_test, y_train, y_test)
 

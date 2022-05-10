@@ -8,9 +8,9 @@ from os.path import exists
 from statistics import median
 from datetime import datetime
 from collections import Counter
-from os import walk, getcwd, chdir
 from pandas import DataFrame, concat
 from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
+from os import walk, getcwd, chdir, listdir
 from multiprocessing import Pool, cpu_count
 from requests.exceptions import ConnectionError
 
@@ -336,6 +336,17 @@ def discover_wallet_directories(dir_to_search):
     :param dir_to_search:
     :return:
     """
+    # ERROR Checking if the directory is empty or not
+    red = '\033[31m'
+    reset = '\033[0m'
+    try:
+        if len(listdir(dir_to_search)) == 0:
+            print(red + "Error: {} is an empty directory!".format(dir_to_search) + reset)
+            exit(1)
+    except FileNotFoundError as e:
+        print(red + "Error: {} is a non-existent directory!".format(dir_to_search) + reset)
+        exit(1)
+
     # traverse root directory, and list directories as dirs and files as files
     unique_directories = []
     for root, dirs, files in walk(dir_to_search):
@@ -399,6 +410,10 @@ def clean_transaction(transaction):
     :return: A dictionary of labels associated to the inputted transaction
     """
     private_info = {}
+    del transaction['Tx_Version']
+    del transaction['xmr2csv_Data_Collection_Time']
+    del transaction['Block_To_xmr2csv_Time_Delta']
+    del transaction['Num_Confirmations']
     private_info['True_Ring_Pos'] = {}
     del transaction['Direction']
     del transaction['Block_Timestamp']
@@ -530,7 +545,7 @@ def main():
         print("Error: " + NETWORK + " block explorer located at " + API_URL + " refused connection!")
         exit(1)
     # Configuration warnings
-    print("The dataset is being collected for the " + NETWORK + " using " + API_URL + " as a block explorer!")
+    print("The dataset is being collected for the " + NETWORK + " network using " + API_URL + " as a block explorer!")
 
     ###########################################
     #  Create the dataset from files on disk  #
