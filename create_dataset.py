@@ -1,6 +1,8 @@
 import pickle
 from sys import argv
 from time import time
+
+import pandas
 from tqdm import tqdm
 from gc import collect
 from requests import get
@@ -8,11 +10,12 @@ from os.path import exists
 from statistics import median
 from datetime import datetime
 from collections import Counter
-from pandas import DataFrame, concat
+from pandas import DataFrame, concat, options
 from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
 from os import walk, getcwd, chdir, listdir
 from multiprocessing import Pool, cpu_count
 from requests.exceptions import ConnectionError
+options.mode.chained_assignment = None  # default='warn'
 
 '''
 Description: Once transactions have been exported from collect.sh this script will combine
@@ -40,6 +43,7 @@ NUM_PROCESSES = cpu_count()  # Set the number of processes for multiprocessing
 NETWORK = "testnet"
 API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
 API_URL = "http://127.0.0.1:8081/api"  # Local Monero Block Explorer
+NUM_RING_MEMBERS = 11
 
 
 def enrich_data(tx_dict_item):
@@ -411,8 +415,8 @@ def clean_transaction(transaction):
     """
     private_info = {}
     del transaction['Tx_Version']
-    del transaction['xmr2csv_Data_Collection_Time']
-    del transaction['Block_To_xmr2csv_Time_Delta']
+    del transaction['Block_Number']
+    del transaction['Block_Timestamp_Epoch']
     del transaction['Num_Confirmations']
     private_info['True_Ring_Pos'] = {}
     del transaction['Direction']
@@ -496,33 +500,53 @@ def undersample(X, y):
     """
     #  Only get the label we need
     true_spend = []
-    for record in y:
-        for idx, ring_pos in record["True_Ring_Pos"].items():
-            true_spend.append(int(ring_pos.split("/")[0]))
-
+    for ring_array in y:
+        for idx, true_ring_pos in ring_array["True_Ring_Pos"].items():
+            true_spend.append(int(true_ring_pos.split("/")[0]))
+    #  Reset pandas indexing just incase
     X.reset_index(drop=True, inplace=True)
+    #  Count the amount of true labels at each position in the ring signature
     labels_distribution = Counter(true_spend)
+    #  Find the smallest number of occurrences
     min_occurrences = labels_distribution.most_common()[len(labels_distribution)-1][1]
     print("Undersampling to " + str(min_occurrences) + " transactions per class.")
     #max_occurrences = labels_distribution.most_common(1)[0][1]
+
+    #  Create a dictionary for all 11 spots in a ring signature
     occurrences = {}
     new_y = []
     new_X = []
-    for i in range(len(labels_distribution)):
+    for i in range(NUM_RING_MEMBERS):
         occurrences[i+1] = 0
-    for idx, val in tqdm(enumerate(y), total=len(y), colour='blue', desc="Undersampling Dataset"):
-        for i in range(len(val["True_Ring_Pos"])):
-            ring_pos = int(val["True_Ring_Pos"][i].split("/")[0])
-            if occurrences[ring_pos] < min_occurrences:
+
+    #  Enumerate each index in the df and get the array of ring labels
+    for df_idx, ring_array in tqdm(enumerate(y), total=len(y), colour='blue', desc="Undersampling Dataset"):
+        #  For each array of ring members iterate over each index
+        for ring_array_idx in range(len(ring_array["True_Ring_Pos"])):
+            #  Get the true ring position (label) for the current iteration
+            ring_pos = int(ring_array["True_Ring_Pos"][ring_array_idx].split("/")[0])
+            total_rings = int(ring_array["True_Ring_Pos"][ring_array_idx].split("/")[1])
+            #  Check to see if we hit the maximum number of labels for this position and that the
+            #  number of ring members is what we expect.
+            if occurrences[ring_pos] < min_occurrences and total_rings == NUM_RING_MEMBERS:
                 occurrences[ring_pos] = occurrences[ring_pos] + 1
-                # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.iloc.html#pandas.DataFrame.iloc
-                temp_df = X.iloc[[idx]]
-                if len(val["True_Ring_Pos"]) != 1:
-                    for col in X.columns:
-                        if "." in col and "." + str(i) + "." not in col:
-                            temp_df.replace([col], -1.0)
+                #  https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.iloc.html#pandas.DataFrame.iloc
+                #  Slice out the row from the dataframe and make it into a temporary dataframe
+                temp_df = X.iloc[[df_idx]]
+                #  Go through each column name in the temp dataframe
+                for col_name in temp_df.columns:
+                    #  Check if the column name has data relating to irrelevant ring signatures
+                    if "Inputs." in col_name and "." + str(ring_array_idx) + "." not in col_name:
+                        #temp_df.replace([col_name], -1.0)
+                        #  Delete the columns
+                        temp_df = temp_df.drop([col_name], axis=1)
+                    #  Check if the column name is for the current ring signature
+                    elif "Inputs." in col_name and "." + str(ring_array_idx) + "." in col_name:
+                        #  Rename the column such that it doesn't have the .0. or .1. positioning information
+                        temp_df.rename(columns={col_name: col_name.replace("Inputs." + str(ring_array_idx) + ".", "Input.")}, inplace=True)
+                #  Add to the new X and y dataframes
                 new_X.append(temp_df)
-                new_y.append(true_spend[idx + i])
+                new_y.append(true_spend[df_idx + ring_array_idx])
     del X
     collect()
     # Combine dataframes together
@@ -534,55 +558,55 @@ def undersample(X, y):
 
 
 def main():
-    # Error Checking
-    if len(argv) != 2:
-        print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
-        exit(1)
-    try:
-        assert get(API_URL + "/block/1").status_code == 200
-    #  Check to see if the API URL given can be connected to
-    except ConnectionError as e:
-        print("Error: " + NETWORK + " block explorer located at " + API_URL + " refused connection!")
-        exit(1)
-    # Configuration warnings
-    print("The dataset is being collected for the " + NETWORK + " network using " + API_URL + " as a block explorer!")
-
-    ###########################################
-    #  Create the dataset from files on disk  #
-    ###########################################
-    global data
-    print("Opening " + str(argv[1]) + "\n")
-    #  Find where the wallets are stored and combine the exported files
-    discover_wallet_directories(argv[1])
-
-    #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
-    #  https://thebinarynotes.com/python-multiprocessing/
-    #  https://docs.python.org/3/library/multiprocessing.html
-    pool = Pool(processes=NUM_PROCESSES)
-    for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing Enriching Transaction Data", total=len(data), colour='blue'):
-        tx_hash, transaction_entry = result[0], result[1]
-        data[tx_hash] = transaction_entry
-    #  Save the raw database to disk
-    with open("dataset.pkl", "wb") as fp:
-        pickle.dump(data, fp)
-    print("dataset.pkl written to disk!")
-
-    ###############################
-    #  Load in the saved dataset  #
-    ###############################
-    with open("dataset.pkl", "rb") as fp:
-        data = pickle.load(fp)
-    #  Feature selection on raw dataset
-    X, y = create_feature_set(data)
-    X.reset_index(drop=True, inplace=True)
-    #  Save data and labels to disk for future AI training
-    with open("X.pkl", "wb") as fp:
-        pickle.dump(X, fp)
-    with open("y.pkl", "wb") as fp:
-        pickle.dump(y, fp)
-    #  Error checking; labels and data should be the same length
-    assert len(X) == len(y)
-    print("X.pkl and y.pkl written to disk!")
+    # # Error Checking
+    # if len(argv) != 2:
+    #     print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
+    #     exit(1)
+    # try:
+    #     assert get(API_URL + "/block/1").status_code == 200
+    # #  Check to see if the API URL given can be connected to
+    # except ConnectionError as e:
+    #     print("Error: " + NETWORK + " block explorer located at " + API_URL + " refused connection!")
+    #     exit(1)
+    # # Configuration warnings
+    # print("The dataset is being collected for the " + NETWORK + " network using " + API_URL + " as a block explorer!")
+    #
+    # ###########################################
+    # #  Create the dataset from files on disk  #
+    # ###########################################
+    # global data
+    # print("Opening " + str(argv[1]) + "\n")
+    # #  Find where the wallets are stored and combine the exported files
+    # discover_wallet_directories(argv[1])
+    #
+    # #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
+    # #  https://thebinarynotes.com/python-multiprocessing/
+    # #  https://docs.python.org/3/library/multiprocessing.html
+    # pool = Pool(processes=NUM_PROCESSES)
+    # for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing Enriching Transaction Data", total=len(data), colour='blue'):
+    #     tx_hash, transaction_entry = result[0], result[1]
+    #     data[tx_hash] = transaction_entry
+    # #  Save the raw database to disk
+    # with open("dataset.pkl", "wb") as fp:
+    #     pickle.dump(data, fp)
+    # print("dataset.pkl written to disk!")
+    #
+    # ###############################
+    # #  Load in the saved dataset  #
+    # ###############################
+    # with open("dataset.pkl", "rb") as fp:
+    #     data = pickle.load(fp)
+    # #  Feature selection on raw dataset
+    # X, y = create_feature_set(data)
+    # X.reset_index(drop=True, inplace=True)
+    # #  Save data and labels to disk for future AI training
+    # with open("X.pkl", "wb") as fp:
+    #     pickle.dump(X, fp)
+    # with open("y.pkl", "wb") as fp:
+    #     pickle.dump(y, fp)
+    # #  Error checking; labels and data should be the same length
+    # assert len(X) == len(y)
+    # print("X.pkl and y.pkl written to disk!")
 
     ###################
     #  Undersampling  #
@@ -612,5 +636,7 @@ if __name__ == '__main__':
         print("Error: User stopped the script's execution!")
         exit(1)
     except Exception as e:
-        print("ERROR: " +str(e))
+        import traceback
+        print(e)
+        print(traceback.print_exc())
         exit(1)
