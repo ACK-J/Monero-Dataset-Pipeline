@@ -8,6 +8,7 @@ from os.path import exists
 from statistics import median
 from datetime import datetime
 from collections import Counter
+from sklearn.utils import shuffle
 from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
 from os import walk, getcwd, chdir, listdir
 from multiprocessing import Pool, cpu_count
@@ -25,7 +26,7 @@ Description: Once transactions have been exported from collect.sh this script wi
              clean the dataset into only relevant features and serialize an X and y dataframe
              which can be used for machine learning applications.
 Usage: ./create_dataset.py < Wallets Directory Path >
-Date: 4/5/2022
+Date: 5/11/2022
 Author: ACK-J
 
 Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
@@ -36,12 +37,15 @@ To run your own block explorer:
             
 '''
 
+######################
+#  Global Variables  #
+######################
 data = {}  # Key = tx hash, val = dict(transaction metadata)
 NUM_PROCESSES = cpu_count()  # Set the number of processes for multiprocessing
 NETWORK = "testnet"
 API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
 API_URL = "http://127.0.0.1:8081/api"  # Local Monero Block Explorer
-NUM_RING_MEMBERS = 11
+NUM_RING_MEMBERS = 11  # ML and DL models depend on a fixed number
 
 
 def enrich_data(tx_dict_item):
@@ -185,7 +189,6 @@ def enrich_data(tx_dict_item):
                 transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Mean_Decoy_Time'] = sum(decoys_on_chain_times) / len(decoys_on_chain_times) - decoys_on_chain_times[0]
                 #  Calculate the median of the ring time
                 transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Median_Decoy_Time'] = int(median(decoys_on_chain_times)) - decoys_on_chain_times[0]
-
     return tx_hash, transaction_entry
 
 
@@ -328,7 +331,6 @@ def combine_files(Wallet_info):
                             wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()]['Input_True_Rings'][xmr2csv_outgoing_csv_values[4].strip()] = xmr2csv_outgoing_csv_values[5].strip()
             else:
                 print("Warning: " + str(Wallet_dir) + " did not contain any transactions!")
-
     return wallet_tx_data
 
 
@@ -457,7 +459,7 @@ def create_feature_set(database):
     This function takes in a nested python dictionary dataset, removes
     any entries that would not be a useful feature to a machine learning
     model, flattens the dictionary and converts it to a dataframe. An
-    accompanying labels dataframe is also created.
+    accompanying labels list is also returned.
     :param database: Nested dictionary of Monero transaction metadata
     :return: A pandas dataframe of the input data and a list of labels
     """
@@ -479,14 +481,23 @@ def create_feature_set(database):
         labels.append(private_info)
 
     print("Number of skipped transactions:", num_errors)
+    assert len(labels) != 0
     del database
     collect()  # Garbage Collector
 
     # Combine dataframes together
-    feature_set = concat(Valid_Transactions, axis=0)
+    feature_set = concat(Valid_Transactions, axis=0).fillna(-1)
+
+    #  Shuffle the data
+    feature_set, labels = shuffle(feature_set, labels)
+    feature_set, labels = shuffle(feature_set, labels)
+    feature_set, labels = shuffle(feature_set, labels)
+
+    #  Reset the indexing after the shuffles
+    feature_set.reset_index(drop=True, inplace=True)
 
     #  Replace any Null values with -1
-    return feature_set.fillna(-1), labels
+    return feature_set, labels
 
 
 def undersample(X, y):
@@ -545,8 +556,9 @@ def undersample(X, y):
                 #  Add to the new X and y dataframes
                 new_X.append(temp_df)
                 undersampled_y.append(flattened_true_spend[df_idx + ring_array_idx])
-    del X
-    collect()
+
+    del X  #  Remove the old dataset from RAM
+    collect()  # Garbage collector
     # Combine the list of dataframes together into a single DF
     undersampled_X = concat(new_X, axis=0)
     del new_X
@@ -589,14 +601,13 @@ def main():
         pickle.dump(data, fp)
     print("dataset.pkl written to disk!")
 
-    ###############################
-    #  Load in the saved dataset  #
-    ###############################
+    #################################
+    #  Remove Unnecessary Features  #
+    #################################
     with open("dataset.pkl", "rb") as fp:
         data = pickle.load(fp)
     #  Feature selection on raw dataset
     X, y = create_feature_set(data)
-    X.reset_index(drop=True, inplace=True)
     #  Save data and labels to disk for future AI training
     with open("X.pkl", "wb") as fp:
         pickle.dump(X, fp)
