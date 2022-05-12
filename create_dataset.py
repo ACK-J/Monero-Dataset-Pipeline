@@ -124,6 +124,12 @@ def enrich_data(tx_dict_item):
                 'Ring_Members': input['mixins']
             }
         )
+        # Go one hop back in time and find the number of outputs
+        for mixin_idx, mixin in enumerate(transaction_entry['Inputs']):
+            #  Get the number of outputs from the previous transaction involving the mixin
+            num_mixin_outputs = len(get(API_URL + "/transaction/" + mixin["Ring_Members"][mixin_idx]['tx_hash']).json()["data"]["outputs"])
+            #  Add the number of outputs to the specific mixin
+            transaction_entry['Inputs'][mixin_idx]['Previous_Tx_Num_Outputs'] = num_mixin_outputs
 
     # Calculate lengths
     transaction_entry['Num_Inputs'] = len(transaction_entry['Inputs'])
