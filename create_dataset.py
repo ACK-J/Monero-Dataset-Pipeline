@@ -26,7 +26,7 @@ Description: Once transactions have been exported from collect.sh this script wi
              clean the dataset into only relevant features and serialize an X and y dataframe
              which can be used for machine learning applications.
 Usage: ./create_dataset.py < Wallets Directory Path >
-Date: 5/11/2022
+Date: 5/12/2022
 Author: ACK-J
 
 Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
@@ -46,6 +46,10 @@ NETWORK = "testnet"
 API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
 API_URL = "http://127.0.0.1:8081/api"  # Local Monero Block Explorer
 NUM_RING_MEMBERS = 11  # ML and DL models depend on a fixed number
+
+# Terminal Colors
+red = '\033[31m'
+reset = '\033[0m'
 
 
 def enrich_data(tx_dict_item):
@@ -72,6 +76,7 @@ def enrich_data(tx_dict_item):
     elif tx_response["coinbase"] == "true":
         transaction_entry['Is_Coinbase_Tx'] = True
     transaction_entry['Tx_Extra'] = tx_response["extra"]
+    transaction_entry['Tx_Extra_Length'] = len(tx_response["extra"])
     transaction_entry['Ring_CT_Type'] = tx_response["rct_type"]
     transaction_entry['Payment_ID'] = tx_response["payment_id"]
     transaction_entry['Payment_ID8'] = tx_response["payment_id8"]
@@ -116,7 +121,7 @@ def enrich_data(tx_dict_item):
                         Decoy['Time_Deltas_Between_Ring_Members']['Median_Ring_Time'] = int(median(Ring_Member_Times)) - Ring_Member_Times[0]
 
     #  Add Input Information
-    for input in tx_response['inputs']:
+    for input_idx, input in enumerate(tx_response['inputs']):
         transaction_entry['Inputs'].append(
             {
                 'Amount': input['amount'],
@@ -124,17 +129,38 @@ def enrich_data(tx_dict_item):
                 'Ring_Members': input['mixins']
             }
         )
-        # Go one hop back in time and find the number of outputs
-        for mixin_idx, mixin in enumerate(transaction_entry['Inputs']):
-            #  Get the number of outputs from the previous transaction involving the mixin
-            num_mixin_outputs = len(get(API_URL + "/transaction/" + mixin["Ring_Members"][mixin_idx]['tx_hash']).json()["data"]["outputs"])
+        transaction_entry['Inputs'][input_idx]['Previous_Tx_Num_Outputs'] = {}
+        transaction_entry['Inputs'][input_idx]['Previous_Tx_Num_Inputs'] = {}
+        transaction_entry['Inputs'][input_idx]['Previous_Tx_Time_Deltas'] = {}
+        transaction_entry['Inputs'][input_idx]['Previous_Tx_Block_Num_Delta'] = {}
+        transaction_entry['Inputs'][input_idx]['Previous_Tx_Tx_Extra_Len'] = {}
+        # Iterate over each ring in the output
+        for ring_mem_num, ring in enumerate(input['mixins']):
+            prev_tx = get(API_URL + "/transaction/" + ring['tx_hash']).json()["data"]
+            #  Get the number of inputs and outputs from the previous transaction involving the mixin
+            try:
+                num_mixin_outputs = len(prev_tx["outputs"])
+            except TypeError as e:  # Edge case where there are no outputs
+                num_mixin_outputs = 0
+            try:
+                num_mixin_inputs = len(prev_tx["inputs"])
+            except TypeError as e:  # Edge case where there are no inputs
+                num_mixin_inputs = 0
             #  Add the number of outputs to the specific mixin
-            transaction_entry['Inputs'][mixin_idx]['Previous_Tx_Num_Outputs'] = num_mixin_outputs
+            transaction_entry['Inputs'][input_idx]['Previous_Tx_Num_Outputs'][str(ring_mem_num)] = num_mixin_outputs
+            #  Add the number of inputs to the specific mixin
+            transaction_entry['Inputs'][input_idx]['Previous_Tx_Num_Inputs'][str(ring_mem_num)] = num_mixin_inputs
+            #  Find how long it has been from this block to the previous mixin transaction
+            transaction_entry['Inputs'][input_idx]['Previous_Tx_Time_Deltas'][str(ring_mem_num)] = int((datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch']) - datetime.fromtimestamp(prev_tx['timestamp'])).total_seconds())
+            #  Find how many blocks are in between this block and the mixin transaction
+            transaction_entry['Inputs'][input_idx]['Previous_Tx_Block_Num_Delta'][str(ring_mem_num)] = int(transaction_entry['Block_Number']) - int(prev_tx['block_height'])
+            #  Get the length of the tx_extra from each mixin transaction
+            transaction_entry['Inputs'][input_idx]['Previous_Tx_Tx_Extra_Len'][str(ring_mem_num)] = len(prev_tx['extra'])
 
     # Calculate lengths
     transaction_entry['Num_Inputs'] = len(transaction_entry['Inputs'])
     transaction_entry['Num_Outputs'] = len(transaction_entry['Outputs']['Output_Data'])
-    transaction_entry['Num_Decoys'] = len(transaction_entry['Outputs']['Decoys_On_Chain'])
+    transaction_entry['Num_Output_Decoys'] = len(transaction_entry['Outputs']['Decoys_On_Chain'])
     transaction_entry['Block_To_xmr2csv_Time_Delta'] = int((datetime.fromtimestamp(transaction_entry['xmr2csv_Data_Collection_Time']) - datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch'])).total_seconds())
 
     # Temporal Features
@@ -319,8 +345,8 @@ def combine_files(Wallet_info):
                                             wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain'].append(Ring_Member)
                                     #  Only collect 10 decoys found on chain because it gets too resource intensive when
                                     #  calculating all the temporal features for every decoy's ring signatures
-                                    # if len(wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 10:
-                                    #     break
+                                    if len(wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 10:
+                                        break
 
                 #  CSV HEADERS -> "Timestamp, Block_no, Tx_hash, Output_pub_key, Key_image, Ring_no/Ring_size"
                 #                      0          1        2            3            4              5
@@ -347,8 +373,6 @@ def discover_wallet_directories(dir_to_search):
     :return:
     """
     # ERROR Checking if the directory is empty or not
-    red = '\033[31m'
-    reset = '\033[0m'
     try:
         if len(listdir(dir_to_search)) == 0:
             print(red + "Error: {} is an empty directory!".format(dir_to_search) + reset)
@@ -371,7 +395,7 @@ def discover_wallet_directories(dir_to_search):
     Wallet_addrs = []
     Wallet_info = []
     #  Go through each directory that has csv files in it
-    for idx, dir in tqdm(enumerate(unique_directories), desc="Enumerating wallet files", total=len(unique_directories), colour='blue'):
+    for idx, dir in tqdm(enumerate(unique_directories), desc="Enumerating Wallet Folders", total=len(unique_directories), colour='blue'):
         chdir(dir)
         #  Iterate over the files in the directory
         for root, dirs, files in walk("."):
@@ -396,7 +420,7 @@ def discover_wallet_directories(dir_to_search):
     total_txs = 0
     num_bad_txs = 0
     pool = Pool(processes=NUM_PROCESSES)
-    for wallet_tx_data in tqdm(pool.imap_unordered(func=combine_files, iterable=Wallet_info), desc="Multiprocessing Combining Exported Transactions", total=len(Wallet_info), colour='blue'):
+    for wallet_tx_data in tqdm(pool.imap_unordered(func=combine_files, iterable=Wallet_info), desc="(Multiprocessing) Combining Exported Wallet Transactions", total=len(Wallet_info), colour='blue'):
         #  Make sure there are transactions in the data before adding it to the dataset
         for tx_hash, tx_data in wallet_tx_data.items():
             if "Input_True_Rings" in tx_data.keys():
@@ -454,7 +478,7 @@ def clean_transaction(transaction):
     del transaction['Payment_ID8']
     del transaction['Time_Of_Enrichment']
     del transaction['Tx_Extra']  # TODO NEED TO USE THIS LATER ON
-    del transaction['Num_Decoys']  # TODO
+    del transaction['Num_Output_Decoys']  # TODO
     del transaction['Block_To_xmr2csv_Time_Delta']
     collect()
     return private_info
@@ -513,7 +537,7 @@ def undersample(X, y):
     :param y:
     :return:
     """
-    #  Only get the label we need
+    #  Flatten the ring signature labels into a list
     flattened_true_spend = []
     for ring_array in y:
         for idx, true_ring_pos in ring_array["True_Ring_Pos"].items():
@@ -522,6 +546,15 @@ def undersample(X, y):
     X.reset_index(drop=True, inplace=True)
     #  Count the amount of true labels at each position in the ring signature
     labels_distribution = Counter(flattened_true_spend)
+
+    # Error checking
+    try:
+        #  Make sure that there are no classes with 0 labels
+        assert len(labels_distribution) == NUM_RING_MEMBERS
+    except AssertionError as e:
+        print(red + "Error: The dataset contains at least one class which has 0 labels!" + reset)
+        exit(1)
+
     #  Find the smallest number of occurrences
     min_occurrences = labels_distribution.most_common()[len(labels_distribution)-1][1]
     print("Undersampling to " + str(min_occurrences) + " transactions per class.")
@@ -535,7 +568,7 @@ def undersample(X, y):
         occurrences[i+1] = 0
 
     #  Enumerate each index in the df and get the array of ring labels
-    for df_idx, ring_array in tqdm(enumerate(y), total=len(y), colour='blue', desc="Undersampling Dataset"):
+    for y_idx, ring_array in tqdm(enumerate(y), total=len(y), colour='blue', desc="Undersampling Dataset"):
         #  For each array of ring members iterate over each index
         for ring_array_idx in range(len(ring_array["True_Ring_Pos"])):
             #  Get the true ring position (label) for the current iteration
@@ -543,11 +576,11 @@ def undersample(X, y):
             total_rings = int(ring_array["True_Ring_Pos"][ring_array_idx].split("/")[1])
             #  Check to see if we hit the maximum number of labels for this position and that the
             #  number of ring members is what we expect.
-            if occurrences[ring_pos] <= min_occurrences and total_rings == NUM_RING_MEMBERS:
+            if occurrences[ring_pos] < min_occurrences and total_rings == NUM_RING_MEMBERS:
                 occurrences[ring_pos] = occurrences[ring_pos] + 1
                 #  https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.iloc.html#pandas.DataFrame.iloc
                 #  Slice out the row from the dataframe and make it into a temporary dataframe
-                temp_df = X.iloc[[df_idx]]
+                temp_df = X.iloc[[y_idx]]
                 #  Go through each column name in the temp dataframe
                 for col_name in temp_df.columns:
                     #  Check if the column name has data relating to irrelevant ring signatures
@@ -561,14 +594,19 @@ def undersample(X, y):
                         temp_df.rename(columns={col_name: col_name.replace("Inputs." + str(ring_array_idx) + ".", "Input.")}, inplace=True)
                 #  Add to the new X and y dataframes
                 new_X.append(temp_df)
-                undersampled_y.append(flattened_true_spend[df_idx + ring_array_idx])
+                undersampled_y.append(ring_pos)
 
-    del X  #  Remove the old dataset from RAM
+    del X  # Remove the old dataset from RAM
     collect()  # Garbage collector
+
     # Combine the list of dataframes together into a single DF
     undersampled_X = concat(new_X, axis=0)
     del new_X
     collect()  # Garbage collector
+
+    # Shuffle the data one last time
+    undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
+    undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
     undersampled_X.reset_index(drop=True, inplace=True)
     return undersampled_X, undersampled_y
 
@@ -599,7 +637,7 @@ def main():
     #  https://thebinarynotes.com/python-multiprocessing/
     #  https://docs.python.org/3/library/multiprocessing.html
     pool = Pool(processes=NUM_PROCESSES)
-    for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="Multiprocessing Enriching Transaction Data", total=len(data), colour='blue'):
+    for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
         tx_hash, transaction_entry = result[0], result[1]
         data[tx_hash] = transaction_entry
     #  Save the raw database to disk
@@ -614,6 +652,9 @@ def main():
         data = pickle.load(fp)
     #  Feature selection on raw dataset
     X, y = create_feature_set(data)
+    del data
+    collect()
+
     #  Save data and labels to disk for future AI training
     with open("X.pkl", "wb") as fp:
         pickle.dump(X, fp)
@@ -634,6 +675,8 @@ def main():
 
     print("Starting to undersample the dataset...")
     X_Undersampled, y_Undersampled = undersample(X, y)
+    del X
+    collect()
 
     with open("X_Undersampled.pkl", "wb") as fp:
         pickle.dump(X_Undersampled, fp)
