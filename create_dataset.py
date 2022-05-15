@@ -133,7 +133,14 @@ def enrich_data(tx_dict_item):
         transaction_entry['Inputs'][input_idx]['Previous_Tx_Num_Inputs'] = {}
         transaction_entry['Inputs'][input_idx]['Previous_Tx_Time_Deltas'] = {}
         transaction_entry['Inputs'][input_idx]['Previous_Tx_Block_Num_Delta'] = {}
-        transaction_entry['Inputs'][input_idx]['Previous_Tx_Tx_Extra_Len'] = {}
+        transaction_entry['Inputs'][input_idx]['Previous_Tx_TxExtra_Len'] = {}
+        transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Occurrences'] = {}
+        transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Times'] = {}
+        #  Initialize the occurrences with 0's
+        for each in range(len(input['mixins'])):
+            transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Occurrences'][str(each)] = 0
+            transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Times'][str(each)] = []
+
         # Iterate over each ring in the output
         for ring_mem_num, ring in enumerate(input['mixins']):
             prev_tx = get(API_URL + "/transaction/" + ring['tx_hash']).json()["data"]
@@ -155,7 +162,26 @@ def enrich_data(tx_dict_item):
             #  Find how many blocks are in between this block and the mixin transaction
             transaction_entry['Inputs'][input_idx]['Previous_Tx_Block_Num_Delta'][str(ring_mem_num)] = int(transaction_entry['Block_Number']) - int(prev_tx['block_height'])
             #  Get the length of the tx_extra from each mixin transaction
-            transaction_entry['Inputs'][input_idx]['Previous_Tx_Tx_Extra_Len'][str(ring_mem_num)] = len(prev_tx['extra'])
+            transaction_entry['Inputs'][input_idx]['Previous_Tx_TxExtra_Len'][str(ring_mem_num)] = len(prev_tx['extra'])
+
+            #  Iterate through each block between where the ring member was created and now
+            for block in range((ring['block_no']+1), transaction_entry['Block_Number']):
+                #  Get the data for the entire block
+                get_block = get(API_URL + "/block/" + str(block)).json()["data"]
+                #  Iterate over each transaction in the block
+                for tx in get_block["txs"]:
+                    try:
+                        #  Get the data for each transaction and iterate over the inputs
+                        for each_input in get(API_URL + "/transaction/" + str(tx['tx_hash'])).json()["data"]["inputs"]:
+                            #  For each input iterate over each ring member
+                            for ring_member in each_input['mixins']:
+                                #  Check to see if the ring members stealth address matches the current rings
+                                if ring_member['public_key'] == ring['public_key']:
+                                    transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Occurrences'][str(ring_mem_num)] += 1
+                                    transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Times'][str(ring_mem_num)].append(get_block['timestamp'])
+                    except TypeError as e:  # If there are no inputs
+                        pass
+
 
     # Calculate lengths
     transaction_entry['Num_Inputs'] = len(transaction_entry['Inputs'])
