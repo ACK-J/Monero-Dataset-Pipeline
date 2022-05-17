@@ -5,15 +5,16 @@ from tqdm import tqdm
 from gc import collect
 from requests import get
 from os.path import exists
+from itertools import repeat
 from statistics import median
 from datetime import datetime
 from collections import Counter
 from sklearn.utils import shuffle
 from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
 from os import walk, getcwd, chdir, listdir
-from multiprocessing import Pool, cpu_count
 from pandas import DataFrame, concat, options
 from requests.exceptions import ConnectionError
+from multiprocessing import Pool, cpu_count, Manager
 options.mode.chained_assignment = None  # default='warn'
 
 '''
@@ -52,7 +53,77 @@ red = '\033[31m'
 reset = '\033[0m'
 
 
-def enrich_data(tx_dict_item):
+def enrich_data_wrapper(Block_cache_Tx_cache_Tx_dict_item):
+    """
+    Convert `f([1,2])` to `f(1,2)` call.
+    https://stackoverflow.com/questions/5442910/how-to-use-multiprocessing-pool-map-with-multiple-arguments
+    """
+    return enrich_data(*Block_cache_Tx_cache_Tx_dict_item)
+
+
+def get_xmr_block(block_cache, block_num):
+    if block_num not in block_cache.keys():
+        if len(block_cache.keys()) < 1000000:
+            block = get(API_URL + "/block/" + str(block_num)).json()["data"]
+            block_cache[block_num] = {
+                "txs": block["txs"],
+                "size": block["size"],
+                "timestamp": block["timestamp"]
+            }
+        else:
+            block_cache.popitem()
+            block = get(API_URL + "/block/" + str(block_num)).json()["data"]
+            block_cache[block_num] = {
+                "txs": block["txs"],
+                "size": block["size"],
+                "timestamp": block["timestamp"]
+            }
+        return block_cache[block_num]
+    else:
+        return block_cache[block_num]
+
+
+def get_xmr_tx(tx_cache, tx_hash):
+    if tx_hash not in tx_cache.keys():
+        if len(tx_cache.keys()) < 1000000:
+            tx = get(API_URL + "/transaction/" + tx_hash).json()["data"]
+            tx_cache[tx_hash] = {
+                "block_height": tx["block_height"],
+                "tx_size": tx["tx_size"],
+                "tx_fee": tx["tx_fee"],
+                "confirmations": tx["confirmations"],
+                "coinbase": tx["coinbase"],
+                "extra": tx["extra"],
+                "rct_type": tx["rct_type"],
+                "payment_id": tx["payment_id"],
+                "payment_id8": tx["payment_id8"],
+                "inputs": tx["inputs"],
+                "outputs": tx["outputs"],
+                "timestamp": tx["timestamp"]
+            }
+        else:
+            tx_cache.popitem()
+            tx = get(API_URL + "/transaction/" + tx_hash).json()["data"]
+            tx_cache[tx_hash] = {
+                "block_height": tx["block_height"],
+                "tx_size": tx["tx_size"],
+                "tx_fee": tx["tx_fee"],
+                "confirmations": tx["confirmations"],
+                "coinbase": tx["coinbase"],
+                "extra": tx["extra"],
+                "rct_type": tx["rct_type"],
+                "payment_id": tx["payment_id"],
+                "payment_id8": tx["payment_id8"],
+                "inputs": tx["inputs"],
+                "outputs": tx["outputs"],
+                "timestamp": tx["timestamp"]
+            }
+        return tx_cache[tx_hash]
+    else:
+        return tx_cache[tx_hash]
+
+
+def enrich_data(block_cache, tx_cache, tx_dict_item):
     """
 
     :param tx_dict_item:
@@ -60,10 +131,12 @@ def enrich_data(tx_dict_item):
     """
     tx_hash = tx_dict_item[0]
     transaction_entry = tx_dict_item[1]
-
-    tx_response = get(API_URL + "/transaction/" + str(tx_hash)).json()["data"]
-    block_response = get(API_URL + "/block/" + str(tx_response["block_height"])).json()["data"]
-    previous_block_response = get(API_URL + "/block/" + str(int(tx_response["block_height"]) - 1)).json()["data"]
+    #tx_response = get(API_URL + "/transaction/" + str(tx_hash)).json()["data"] ####################DEBUGGGGGGGGGGG
+    tx_response = get_xmr_tx(tx_cache, str(tx_hash))
+    # block_response = get(API_URL + "/block/" + str(tx_response["block_height"])).json()["data"] ####################DEBUGGGGGGGGGGG
+    # previous_block_response = get(API_URL + "/block/" + str(int(tx_response["block_height"]) - 1)).json()["data"]   ####################DEBUGGGGGGGGGGG
+    block_response = get_xmr_block(block_cache, str(tx_response["block_height"]))
+    previous_block_response = get_xmr_block(block_cache, str(int(tx_response["block_height"]) - 1))
     transaction_entry['Tx_Size'] = tx_response["tx_size"]
     # Check if the fee is missing
     if 'Tx_Fee' not in transaction_entry.keys():
@@ -92,7 +165,8 @@ def enrich_data(tx_dict_item):
     for Decoy in transaction_entry['Outputs']['Decoys_On_Chain']:
         #  Add Temporal Features for the decoy ( This takes up a ton of time )
         #  Retrieve the transaction information about the decoy ring signatures
-        decoy_tx_response = get(API_URL + "/transaction/" + str(Decoy['Tx_Hash'])).json()["data"]
+        #decoy_tx_response = get(API_URL + "/transaction/" + str(Decoy['Tx_Hash'])).json()["data"]  ####################DEBUGGGGGGGGGGG
+        decoy_tx_response = get_xmr_tx(tx_cache, str(Decoy['Tx_Hash']))
         #  Iterate through each input
         for decoy_input in decoy_tx_response['inputs']:
             #  Create an entry for the temporal data
@@ -103,7 +177,8 @@ def enrich_data(tx_dict_item):
                 Ring_Member_Times = []
                 #  Iterate through each mixin, add it to the list and calculate the time deltas
                 for member_idx, each_member in enumerate(decoy_input['mixins']):
-                    Ring_Member_Times.append(get(API_URL + "/block/" + str(each_member['block_no'])).json()['data']['timestamp'])
+                    #Ring_Member_Times.append(get(API_URL + "/block/" + str(each_member['block_no'])).json()['data']['timestamp']) ####################DEBUGGGGGGGGGGG
+                    Ring_Member_Times.append(get_xmr_block(block_cache, str(each_member['block_no']))['timestamp'])
                     #  If the list has at least 2 items
                     if len(Ring_Member_Times) > 1:
                         time_delta = int((datetime.fromtimestamp(Ring_Member_Times[member_idx]) - datetime.fromtimestamp(Ring_Member_Times[member_idx - 1])).total_seconds())
@@ -143,7 +218,8 @@ def enrich_data(tx_dict_item):
 
         # Iterate over each ring in the output
         for ring_mem_num, ring in enumerate(input['mixins']):
-            prev_tx = get(API_URL + "/transaction/" + ring['tx_hash']).json()["data"]
+            #prev_tx = get(API_URL + "/transaction/" + ring['tx_hash']).json()["data"]
+            prev_tx = get_xmr_tx(tx_cache, ring['tx_hash'])
             #  Get the number of inputs and outputs from the previous transaction involving the mixin
             try:
                 num_mixin_outputs = len(prev_tx["outputs"])
@@ -167,21 +243,22 @@ def enrich_data(tx_dict_item):
             #  Iterate through each block between where the ring member was created and now
             for block in range((ring['block_no']+1), transaction_entry['Block_Number']):
                 #  Get the data for the entire block
-                get_block = get(API_URL + "/block/" + str(block)).json()["data"]
+                #temp_block = get(API_URL + "/block/" + str(block)).json()["data"]   ####################DEBUGGGGGGGGGGG
+                temp_block = get_xmr_block(block_cache, str(block))
                 #  Iterate over each transaction in the block
-                for tx in get_block["txs"]:
+                for tx in temp_block["txs"]:
                     try:
                         #  Get the data for each transaction and iterate over the inputs
-                        for each_input in get(API_URL + "/transaction/" + str(tx['tx_hash'])).json()["data"]["inputs"]:
+                        #for each_input in get(API_URL + "/transaction/" + str(tx['tx_hash'])).json()["data"]["inputs"]:   ####################DEBUGGGGGGGGGGG
+                        for each_input in get_xmr_tx(tx_cache, str(tx['tx_hash']))["inputs"]:
                             #  For each input iterate over each ring member
                             for ring_member in each_input['mixins']:
                                 #  Check to see if the ring members stealth address matches the current rings
                                 if ring_member['public_key'] == ring['public_key']:
                                     transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Occurrences'][str(ring_mem_num)] += 1
-                                    transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Times'][str(ring_mem_num)].append(get_block['timestamp'])
+                                    transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Times'][str(ring_mem_num)].append(temp_block['timestamp'])
                     except TypeError as e:  # If there are no inputs
                         pass
-
 
     # Calculate lengths
     transaction_entry['Num_Inputs'] = len(transaction_entry['Inputs'])
@@ -197,7 +274,8 @@ def enrich_data(tx_dict_item):
             ring_mem_times = []
             if len(each_input['Ring_Members']) != 0:
                 for ring_num, ring_mem in enumerate(each_input['Ring_Members']):
-                    ring_mem_times.append(get(API_URL + "/block/" + str(ring_mem['block_no'])).json()['data']['timestamp'])
+                    #ring_mem_times.append(get(API_URL + "/block/" + str(ring_mem['block_no'])).json()['data']['timestamp'])   ####################DEBUGGGGGGGGGGG
+                    ring_mem_times.append(get_xmr_block(block_cache, str(ring_mem['block_no']))['timestamp'])
                     #  If the list has at least 2 items
                     if len(ring_mem_times) > 1:
                         time_delta = int((datetime.fromtimestamp(ring_mem_times[ring_num]) - datetime.fromtimestamp(ring_mem_times[ring_num - 1])).total_seconds())
@@ -215,7 +293,7 @@ def enrich_data(tx_dict_item):
                 #  Calculate the median of the ring time
                 transaction_entry['Inputs'][input_idx]['Median_Ring_Time'] = int(median(ring_mem_times)) - ring_mem_times[0]
 
-    # Move labels to Input dictionary
+    # Move labels to Input dictionary (This is kinda jank but it's the best way I can think of)
     for input_key_image, true_ring_position in transaction_entry['Input_True_Rings'].items():
         #  Match the true spent ring's key image to one of the inputs
         for each_input in transaction_entry['Inputs']:
@@ -231,7 +309,8 @@ def enrich_data(tx_dict_item):
         #  A place to store the block times of each ring member
         decoys_on_chain_times = []
         for member_idx, each_member in enumerate(transaction_entry['Outputs']['Decoys_On_Chain']):
-            decoys_on_chain_times.append(get(API_URL + "/block/" + str(each_member['Block_Number'])).json()['data']['timestamp'])
+            #decoys_on_chain_times.append(get(API_URL + "/block/" + str(each_member['Block_Number'])).json()['data']['timestamp'])   ####################DEBUGGGGGGGGGGG
+            decoys_on_chain_times.append(get_xmr_block(block_cache, str(each_member['Block_Number']))['timestamp'])
             #  If the list has at least 2 items
             if len(decoys_on_chain_times) > 1:
                 time_delta = int((datetime.fromtimestamp(decoys_on_chain_times[member_idx]) - datetime.fromtimestamp(decoys_on_chain_times[member_idx - 1])).total_seconds())
@@ -605,13 +684,12 @@ def undersample(X, y):
             if occurrences[ring_pos] < min_occurrences and total_rings == NUM_RING_MEMBERS:
                 occurrences[ring_pos] = occurrences[ring_pos] + 1
                 #  https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.iloc.html#pandas.DataFrame.iloc
-                #  Slice out the row from the dataframe and make it into a temporary dataframe
+                #  Slice out the row from the dataframe but keep it as a dataframe
                 temp_df = X.iloc[[y_idx]]
                 #  Go through each column name in the temp dataframe
                 for col_name in temp_df.columns:
                     #  Check if the column name has data relating to irrelevant ring signatures
                     if "Inputs." in col_name and "." + str(ring_array_idx) + "." not in col_name:
-                        #temp_df.replace([col_name], -1.0)
                         #  Delete the columns
                         temp_df = temp_df.drop([col_name], axis=1)
                     #  Check if the column name is for the current ring signature
@@ -662,14 +740,19 @@ def main():
     #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
     #  https://thebinarynotes.com/python-multiprocessing/
     #  https://docs.python.org/3/library/multiprocessing.html
-    pool = Pool(processes=NUM_PROCESSES)
-    for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
-        tx_hash, transaction_entry = result[0], result[1]
-        data[tx_hash] = transaction_entry
-    #  Save the raw database to disk
-    with open("dataset.pkl", "wb") as fp:
-        pickle.dump(data, fp)
-    print("dataset.pkl written to disk!")
+    #  https://stackoverflow.com/questions/6832554/multiprocessing-how-do-i-share-a-dict-among-multiple-processes
+    with Manager() as manager:
+        block_cache = manager.dict()
+        tx_cache = manager.dict()
+        #pool = Pool(processes=NUM_PROCESSES)
+        with manager.Pool(processes=NUM_PROCESSES) as pool:
+            for result in tqdm(pool.imap_unordered(func=enrich_data_wrapper, iterable=zip(repeat(block_cache, len(data)), repeat(tx_cache, len(data)), list(data.items()))), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
+                tx_hash, transaction_entry = result[0], result[1]
+                data[tx_hash] = transaction_entry
+            #  Save the raw database to disk
+            with open("dataset.pkl", "wb") as fp:
+                pickle.dump(data, fp)
+            print("dataset.pkl written to disk!")
 
     #################################
     #  Remove Unnecessary Features  #
