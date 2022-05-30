@@ -566,7 +566,6 @@ def create_feature_set(database):
     :param database: Nested dictionary of Monero transaction metadata
     :return: A pandas dataframe of the input data and a list of labels
     """
-    feature_set = DataFrame()
     labels = []
     Valid_Transactions = []
     num_errors = 0

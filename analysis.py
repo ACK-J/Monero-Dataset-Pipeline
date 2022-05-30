@@ -28,9 +28,9 @@ TEST_SIZE = 0.2
 
 def load_data(TEST_SIZE):
     X, y = None, None
-    with open("/media/sf_Desktop/X_Undersampled.pkl", "rb") as fp:
+    with open("./X_Undersampled.pkl", "rb") as fp:
         X = pickle.load(fp)
-    with open("/media/sf_Desktop/y_Undersampled.pkl", "rb") as fp:
+    with open("./y_Undersampled.pkl", "rb") as fp:
         y = pickle.load(fp)
     assert X is not None and y is not None
     assert len(X) == len(y)
@@ -351,16 +351,6 @@ def MLP(X_train, X_test, y_train, y_test):
     from sklearn.model_selection import cross_val_score
     from sklearn.model_selection import KFold
 
-    X_test = X_test.drop(['Tx_Version'], axis=1)
-    X_test = X_test.drop(['xmr2csv_Data_Collection_Time'], axis=1)
-    X_test = X_test.drop(['Block_To_xmr2csv_Time_Delta'], axis=1)
-    X_test = X_test.drop(['Num_Confirmations'], axis=1)
-
-    X_train = X_train.drop(['Tx_Version'], axis=1)
-    X_train = X_train.drop(['xmr2csv_Data_Collection_Time'], axis=1)
-    X_train = X_train.drop(['Block_To_xmr2csv_Time_Delta'], axis=1)
-    X_train = X_train.drop(['Num_Confirmations'], axis=1)
-
     y_test = np.asarray(y_test)
     y_train = np.asarray(y_train)
     y_test = np_utils.to_categorical(y_test)
@@ -375,7 +365,7 @@ def MLP(X_train, X_test, y_train, y_test):
 
 
     model = Sequential()
-    model.add(Dense(11, input_shape=(1965,), activation='relu'))
+    model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
     model.add(Dense(32, activation='relu'))
     model.add(Dropout(.1))
     model.add(Dense(64, activation='relu'))
@@ -389,7 +379,7 @@ def MLP(X_train, X_test, y_train, y_test):
     model.summary()
 
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    model.fit(X_train, y_train, epochs=100, batch_size=64)
+    model.fit(X_train, y_train, epochs=100, batch_size=1)
     y_pred = model.predict(X_test)
     score = model.evaluate(X_test, y_test, verbose=1)
     print(score[1])
