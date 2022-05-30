@@ -39,11 +39,12 @@ NUM_PROCESSES = cpu_count()  # Set the number of processes for multiprocessing
 NETWORK = "testnet"
 API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
 API_URL = "http://127.0.0.1:8081/api"  # Local Monero Block Explorer
-NUM_RING_MEMBERS = 11  # ML and DL models depend on a fixed number
+NUM_RING_MEMBERS = 11  # DL models depend on a fixed number
 
 # Terminal Colors
 red = '\033[31m'
 blue = "\033[0;34m"
+yellow = "\033[1;33m"
 reset = '\033[0m'
 
 
@@ -56,6 +57,7 @@ def enrich_data_wrapper(Block_cache_Tx_cache_Tx_dict_item):
 
 
 def get_xmr_block(block_cache, block_num):
+    return get(API_URL + "/block/" + str(block_num)).json()["data"]
     #  Check if the block is already in the cache
     if block_num not in block_cache.keys():
         #  Check if the cache is full
@@ -74,6 +76,7 @@ def get_xmr_block(block_cache, block_num):
 
 
 def get_xmr_tx(tx_cache, tx_hash):
+    return get(API_URL + "/transaction/" + tx_hash).json()["data"]
     #  Check if the transaction is not already in the cache
     if tx_hash not in tx_cache.keys():
         #  Check if the cache is full
@@ -435,7 +438,7 @@ def combine_files(Wallet_info):
                             #  Set the key image as the dictionary key and 'Ring_no/Ring_size' as the value
                             wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()]['Input_True_Rings'][xmr2csv_outgoing_csv_values[4].strip()] = xmr2csv_outgoing_csv_values[5].strip()
             else:
-                print("Warning: " + str(Wallet_dir) + " did not contain any transactions!")
+                print(yellow + "Warning: " + reset + str(Wallet_dir) + " did not contain any transactions!")
     return wallet_tx_data
 
 
@@ -688,7 +691,7 @@ def main():
         print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
         exit(1)
     try:  # Check to see if the API URL given can be connected
-        get(API_URL + "/block/1").status_code == 200
+        assert get(API_URL + "/block/1").status_code == 200
     except ConnectionError as e:
         print("Error: " + red + NETWORK + reset + " block explorer located at " + API_URL + " refused connection!")
         exit(1)
