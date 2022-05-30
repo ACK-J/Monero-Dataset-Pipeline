@@ -47,7 +47,7 @@ def main():
     # The time to stop collection in epoch
     endtime_epoch = datetime.fromtimestamp(int(END_COLLECTION_EPOCH_DATE))
 
-    # A one line bash command that will call the spend Expect script with an amount, priority and wallet id
+    # A one line bash command that will call the spend Expect script with an amount and priority
     oneliner = './' + argv[1] + """-spend.exp $(python3 -c 'import random;print(format(random.uniform(0.0001, 0.000000000001), ".12f"))') $(python3 -c 'import random;print(random.randint(1,4))') """ + ' | grep -v "Height*/*"'
 
     # When this script first runs the only funds in the wallet will be brand new so we must wait 20 mins
