@@ -362,8 +362,7 @@ def MLP(X_train, X_test, y_train, y_test):
     X_train = scaler.transform(X_train)
     X_test = scaler.transform(X_test)
 
-
-
+    from keras_visualizer import visualizer
     model = Sequential()
     model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
     model.add(Dense(32, activation='relu'))
@@ -377,6 +376,8 @@ def MLP(X_train, X_test, y_train, y_test):
     model.add(Dense(11))
     model.add(Activation('softmax'))
     model.summary()
+    # https://towardsdatascience.com/visualizing-keras-models-4d0063c8805e
+    visualizer(model, format='png', view=True)
 
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     model.fit(X_train, y_train, epochs=100, batch_size=1)

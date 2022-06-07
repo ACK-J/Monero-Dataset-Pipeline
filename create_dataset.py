@@ -11,16 +11,16 @@ from datetime import datetime
 from collections import Counter
 from sklearn.utils import shuffle
 from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
-from pandas import DataFrame, concat, options
 from requests.exceptions import ConnectionError
 from os import walk, getcwd, chdir, listdir, path
 from multiprocessing import Pool, cpu_count, Manager
+from pandas import DataFrame, concat, options, read_parquet
 options.mode.chained_assignment = None  # default='warn'
 
 '''
 Description: 
 Usage: ./create_dataset.py < Wallets Directory Path >
-Date: 5/29/2022
+Date: 6/7/2022
 Author: ACK-J
 
 Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
@@ -572,6 +572,8 @@ def create_feature_set(database):
     labels = []
     Valid_Transactions = []
     num_errors = 0
+    feature_set = dict()
+    num_of_valid_txs = 0
     #  Iterate through each tx hash
     for idx, tx_hash in tqdm(enumerate(database.keys()), total=len(database), colour='blue', desc="Cleaning Transactions"):
         #  Pass the transaction ( by reference ) to be stripped of non-features and receive the labels back
@@ -581,7 +583,26 @@ def create_feature_set(database):
             num_errors += 1
             continue
         #  add tx hash to good list
-        Valid_Transactions.append(DataFrame(CherryPicker(database[tx_hash]).flatten(delim='.').get(), index=[idx]))
+        #Valid_Transactions.append(DataFrame(CherryPicker(database[tx_hash]).flatten(delim='.').get(), index=[idx]))
+        #  Flatten each transaction and iterate over each feature
+        for k, v in CherryPicker(database[tx_hash]).flatten(delim='.').get().items():
+            #  Check if the feature name is not already in the feature set
+            if k not in feature_set.keys():
+                feature_set[k] = []
+                #  add any missing values
+                for i in range(num_of_valid_txs-1):
+                    feature_set[k].append(-1)
+                #  Add it as a new feature
+                feature_set[k].append(v)
+            else:  # If the feature is already in the feature set
+                #  Check if there are any transactions that did not have this feature
+                if len(feature_set[k]) < num_of_valid_txs:
+                    #  Add -1 for those occurences
+                    for i in range(num_of_valid_txs-len(feature_set[k])-1):
+                        feature_set[k].append(-1)
+                #  Append the feature
+                feature_set[k].append(v)
+        num_of_valid_txs += 1
         #  add the labels to the list
         labels.append(private_info)
 
@@ -589,20 +610,29 @@ def create_feature_set(database):
     assert len(labels) != 0
     del database
     collect()  # Garbage Collector
+    feature_set_df = DataFrame.from_dict(feature_set, orient='index').transpose()
+    feature_set_df.fillna(-1, inplace=True)
+
+    del feature_set
+    collect()  # Garbage collector
+
+    #  Sanity check
+    assert len(labels) == len(feature_set_df)
 
     # Combine dataframes together
-    feature_set = concat(Valid_Transactions, axis=0).fillna(-1)
+    # https://www.confessionsofadataguy.com/solving-the-memory-hungry-pandas-concat-problem/
+    #feature_set = concat(Valid_Transactions, axis=0).fillna(-1)
 
     #  Shuffle the data
-    feature_set, labels = shuffle(feature_set, labels)
-    feature_set, labels = shuffle(feature_set, labels)
-    feature_set, labels = shuffle(feature_set, labels)
+    feature_set_df, labels = shuffle(feature_set_df, labels)
+    feature_set_df, labels = shuffle(feature_set_df, labels)
+    feature_set_df, labels = shuffle(feature_set_df, labels)
 
     #  Reset the indexing after the shuffles
-    feature_set.reset_index(drop=True, inplace=True)
+    feature_set_df.reset_index(drop=True, inplace=True)
 
     #  Replace any Null values with -1
-    return feature_set, labels
+    return feature_set_df, labels
 
 
 def undersample(X, y):
