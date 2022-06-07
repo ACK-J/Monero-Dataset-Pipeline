@@ -48,62 +48,15 @@ yellow = "\033[1;33m"
 reset = '\033[0m'
 
 
-def enrich_data_wrapper(Block_cache_Tx_cache_Tx_dict_item):
-    """
-    Convert `f([1,2])` to `f(1,2)` call.
-    https://stackoverflow.com/questions/5442910/how-to-use-multiprocessing-pool-map-with-multiple-arguments
-    """
-    return enrich_data(*Block_cache_Tx_cache_Tx_dict_item)
-
-
-def get_xmr_block(block_cache, block_num):
+def get_xmr_block(block_num):
     return get(API_URL + "/block/" + str(block_num)).json()["data"]
-    #  Check if the block is already in the cache
-    if block_num not in block_cache.keys():
-        #  Check if the cache is full
-        if len(block_cache.keys()) == 200000:
-            block_cache.popitem()
-        #  Add the block to the cache
-        block = get(API_URL + "/block/" + str(block_num)).json()["data"]
-        block_cache[block_num] = {
-            "txs": block["txs"],
-            "size": block["size"],
-            "timestamp": block["timestamp"]
-        }
-        return block_cache[block_num]
-    else:
-        return block_cache[block_num]
 
 
-def get_xmr_tx(tx_cache, tx_hash):
+def get_xmr_tx(tx_hash):
     return get(API_URL + "/transaction/" + tx_hash).json()["data"]
-    #  Check if the transaction is not already in the cache
-    if tx_hash not in tx_cache.keys():
-        #  Check if the cache is full
-        if len(tx_cache.keys()) == 100000:
-            tx_cache.popitem()
-        # Add the transaction to the cache
-        tx = get(API_URL + "/transaction/" + tx_hash).json()["data"]
-        tx_cache[tx_hash] = {
-            "block_height": tx["block_height"],
-            "tx_size": tx["tx_size"],
-            "tx_fee": tx["tx_fee"],
-            "confirmations": tx["confirmations"],
-            "coinbase": tx["coinbase"],
-            "extra": tx["extra"],
-            "rct_type": tx["rct_type"],
-            "payment_id": tx["payment_id"],
-            "payment_id8": tx["payment_id8"],
-            "inputs": tx["inputs"],
-            "outputs": tx["outputs"],
-            "timestamp": tx["timestamp"]
-        }
-        return tx_cache[tx_hash]
-    else:
-        return tx_cache[tx_hash]
 
 
-def enrich_data(block_cache, tx_cache, tx_dict_item):
+def enrich_data(tx_dict_item):
     """
 
     :param tx_dict_item:
@@ -111,9 +64,9 @@ def enrich_data(block_cache, tx_cache, tx_dict_item):
     """
     tx_hash = tx_dict_item[0]
     transaction_entry = tx_dict_item[1]
-    tx_response = get_xmr_tx(tx_cache, str(tx_hash))
-    block_response = get_xmr_block(block_cache, str(tx_response["block_height"]))
-    previous_block_response = get_xmr_block(block_cache, str(int(tx_response["block_height"]) - 1))
+    tx_response = get_xmr_tx(str(tx_hash))
+    block_response = get_xmr_block(str(tx_response["block_height"]))
+    previous_block_response = get_xmr_block(str(int(tx_response["block_height"]) - 1))
     transaction_entry['Tx_Size'] = tx_response["tx_size"]
     # Check if the fee is missing
     if 'Tx_Fee' not in transaction_entry.keys():
@@ -142,7 +95,7 @@ def enrich_data(block_cache, tx_cache, tx_dict_item):
     for Decoy in transaction_entry['Outputs']['Decoys_On_Chain']:
         #  Add Temporal Features for the decoy ( This takes up a ton of time )
         #  Retrieve the transaction information about the decoy ring signatures
-        decoy_tx_response = get_xmr_tx(tx_cache, str(Decoy['Tx_Hash']))
+        decoy_tx_response = get_xmr_tx(str(Decoy['Tx_Hash']))
         #  Iterate through each input
         for decoy_input in decoy_tx_response['inputs']:
             #  Create an entry for the temporal data
@@ -153,7 +106,7 @@ def enrich_data(block_cache, tx_cache, tx_dict_item):
                 Ring_Member_Times = []
                 #  Iterate through each mixin, add it to the list and calculate the time deltas
                 for member_idx, each_member in enumerate(decoy_input['mixins']):
-                    Ring_Member_Times.append(get_xmr_block(block_cache, str(each_member['block_no']))['timestamp'])
+                    Ring_Member_Times.append(get_xmr_block(str(each_member['block_no']))['timestamp'])
                     #  If the list has at least 2 items
                     if len(Ring_Member_Times) > 1:
                         time_delta = int((datetime.fromtimestamp(Ring_Member_Times[member_idx]) - datetime.fromtimestamp(Ring_Member_Times[member_idx - 1])).total_seconds())
@@ -194,7 +147,7 @@ def enrich_data(block_cache, tx_cache, tx_dict_item):
 
         # Iterate over each ring in the output
         for ring_mem_num, ring in enumerate(input['mixins']):
-            prev_tx = get_xmr_tx(tx_cache, ring['tx_hash'])
+            prev_tx = get_xmr_tx(ring['tx_hash'])
             #  Get the number of inputs and outputs from the previous transaction involving the mixin
             try:
                 num_mixin_outputs = len(prev_tx["outputs"])
@@ -247,7 +200,7 @@ def enrich_data(block_cache, tx_cache, tx_dict_item):
             ring_mem_times = []
             if len(each_input['Ring_Members']) != 0:
                 for ring_num, ring_mem in enumerate(each_input['Ring_Members']):
-                    ring_mem_times.append(get_xmr_block(block_cache, str(ring_mem['block_no']))['timestamp'])
+                    ring_mem_times.append(get_xmr_block(str(ring_mem['block_no']))['timestamp'])
                     #  If the list has at least 2 items
                     if len(ring_mem_times) > 1:
                         time_delta = int((datetime.fromtimestamp(ring_mem_times[ring_num]) - datetime.fromtimestamp(ring_mem_times[ring_num - 1])).total_seconds())
@@ -281,7 +234,7 @@ def enrich_data(block_cache, tx_cache, tx_dict_item):
         #  A place to store the block times of each ring member
         decoys_on_chain_times = []
         for member_idx, each_member in enumerate(transaction_entry['Outputs']['Decoys_On_Chain']):
-            decoys_on_chain_times.append(get_xmr_block(block_cache, str(each_member['Block_Number']))['timestamp'])
+            decoys_on_chain_times.append(get_xmr_block(str(each_member['Block_Number']))['timestamp'])
             #  If the list has at least 2 items
             if len(decoys_on_chain_times) > 1:
                 time_delta = int((datetime.fromtimestamp(decoys_on_chain_times[member_idx]) - datetime.fromtimestamp(decoys_on_chain_times[member_idx - 1])).total_seconds())
@@ -711,6 +664,7 @@ def undersample(X, y):
     # Shuffle the data one last time
     undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
     undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
+    undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
     undersampled_X.reset_index(drop=True, inplace=True)
     return undersampled_X, undersampled_y
 
@@ -741,23 +695,9 @@ def main():
     #  https://docs.python.org/3/library/multiprocessing.html
     #  https://stackoverflow.com/questions/6832554/multiprocessing-how-do-i-share-a-dict-among-multiple-processes
     with Manager() as manager:
-        #  Check if a block cache was saved to disk
-        if path.exists("./block_cache.pkl"):
-            print(getcwd())
-            with open("./block_cache.pkl", "rb") as fp:
-                block_cache = pickle.load(fp)
-        else:
-            block_cache = manager.dict()
-        #  Check if a transaction cache was saved to disk
-        if path.exists("./tx_cache.pkl"):
-            with open("./tx_cache.pkl", "rb") as fp:
-                tx_cache = pickle.load(fp)
-        else:
-            tx_cache = manager.dict()
-
-        #  Multiprocessing enriching each transaction with shared memory and caching
+        #  Multiprocessing enriching each transaction
         with manager.Pool(processes=NUM_PROCESSES) as pool:
-            for result in tqdm(pool.imap_unordered(func=enrich_data_wrapper, iterable=zip(repeat(block_cache, len(data)), repeat(tx_cache, len(data)), list(data.items()))), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
+            for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
                 tx_hash, transaction_entry = result[0], result[1]  # Unpack the values returned
                 data[tx_hash] = transaction_entry  # Set the enriched version of the tx
 
@@ -765,12 +705,6 @@ def main():
         with open("dataset.pkl", "wb") as fp:
             pickle.dump(data, fp)
         print("dataset.pkl written to disk!")
-        #  Save the transaction cache to disk
-        with open("tx_cache.pkl", "wb") as fp:
-            pickle.dump(dict(tx_cache), fp)
-        #  Save the block cache to disk
-        with open("block_cache.pkl", "wb") as fp:
-            pickle.dump(dict(block_cache), fp)
 
     #################################
     #  Remove Unnecessary Features  #
