@@ -1,3 +1,4 @@
+import json
 import pickle
 from sys import argv
 from time import time
@@ -575,8 +576,6 @@ def create_feature_set(database):
 
     #  Shuffle the data
     feature_set_df, labels = shuffle(feature_set_df, labels)
-    feature_set_df, labels = shuffle(feature_set_df, labels)
-    feature_set_df, labels = shuffle(feature_set_df, labels)
 
     #  Reset the indexing after the shuffles
     feature_set_df.reset_index(drop=True, inplace=True)
@@ -585,7 +584,7 @@ def create_feature_set(database):
     return feature_set_df, labels
 
 
-def undersample_processing(y, ns, min_occurrences, occurrences):
+def undersample_processing(y, temp_df, min_occurrences, occurrences):
     """
 
     :param y:
@@ -608,17 +607,13 @@ def undersample_processing(y, ns, min_occurrences, occurrences):
             occurrences[ring_pos] = occurrences[ring_pos] + 1
             #  https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.iloc.html#pandas.DataFrame.iloc
             #  Slice out the row from the dataframe but keep it as a dataframe
-            temp_df = ns.X.iloc[[y_idx]]
-            #  Go through each column name in the temp dataframe
-            for col_name in temp_df.columns:
-                #  Check if the column name has data relating to irrelevant ring signatures
-                if "Inputs." in col_name and "." + str(ring_array_idx) + "." not in col_name:
-                    #  Delete the columns
-                    temp_df = temp_df.drop([col_name], axis=1)
-                #  Check if the column name is for the current ring signature
-                elif "Inputs." in col_name and "." + str(ring_array_idx) + "." in col_name:
-                    #  Rename the column such that it doesn't have the .0. or .1. positioning information
-                    temp_df.rename(columns={col_name: col_name.replace("Inputs." + str(ring_array_idx) + ".", "Input.")}, inplace=True)
+            #temp_df = ns.X.iloc[[y_idx]]
+            #  https://stackoverflow.com/questions/57392878/how-to-speed-up-pandas-drop-method
+            #  Check if the column name has data relating to irrelevant ring signatures and Delete the columns
+            temp_df.drop([column for column in temp_df.columns if "Inputs." in column and "." + str(ring_array_idx) + "." not in column], axis=1, inplace=True)
+            #  Check if the column name is for the current ring signature
+            #  Rename the column such that it doesn't have the .0. or .1. positioning information
+            temp_df.rename(columns={column: column.replace("Inputs." + str(ring_array_idx) + ".", "Input.") for column in temp_df.columns if "Inputs." in column and "." + str(ring_array_idx) + "." in column}, inplace=True)
             #  Add to the new X and y dataframes
             new_X.append(temp_df)
             undersampled_y.append(ring_pos)
@@ -631,6 +626,12 @@ def undersample_processing_wrapper(y_X_min_occurrences_Occurrences):
     :param y_X_min_occurrences_Occurrences:
     :return:
     """
+    # from line_profiler import LineProfiler
+    # lp = LineProfiler()
+    # lp_wrapper = lp(undersample_processing)
+    # X_Undersampled, y_Undersampled = lp_wrapper(*y_X_min_occurrences_Occurrences)
+    # lp.print_stats()
+    # return X_Undersampled, y_Undersampled
     return undersample_processing(*y_X_min_occurrences_Occurrences)
 
 
@@ -666,10 +667,29 @@ def undersample(X, y):
 
     undersampled_y = []
     new_X = []
+    enumerated_y = list(enumerate(y))
+    del y
+    collect()  # Garbage collector
+    enumerated_X = []
+    #enumerated_X = [X.iloc[[idx]] for idx, _ in enumerated_y]
+    if not exists("./Dataset_Files/enumerated_X.pkl"):
+        for i in tqdm(range(len(enumerated_y)), desc="Splicing Dataset Into Chunks", total=len(enumerated_y), colour='blue'):
+            enumerated_X.append(X.iloc[0])
+            X = X[1:]
+            if i % 100000 == 0:
+                collect()
+        del X  # Remove the old dataset to save RAM
+        collect()  # Garbage collector
+        with open("./Dataset_Files/enumerated_X.pkl", "wb") as fp:
+            pickle.dump(enumerated_X, fp)
+        print("./Dataset_Files/enumerated_X.pkl Written to disk!")
+    else:
+        del X  # Remove the old dataset to save RAM
+        collect()  # Garbage collector
+        with open("./Dataset_Files/enumerated_X.pkl", "rb") as fp:
+            enumerated_X = pickle.load(fp)
+    assert len(enumerated_X) == len(enumerated_y)
     with Manager() as manager:
-        # https://stackoverflow.com/questions/19887087/how-to-share-pandas-dataframe-object-between-processes
-        ns = manager.Namespace()
-        ns.X = X
         #  Create a dictionary for all 11 spots in a ring signature
         occurrences = manager.dict()
         for i in range(NUM_RING_MEMBERS):
@@ -678,14 +698,14 @@ def undersample(X, y):
         with manager.Pool(processes=NUM_PROCESSES) as pool:
             for result in tqdm(pool.imap_unordered(func=undersample_processing_wrapper,
                                                    iterable=zip(
-                                                                list(enumerate(y)),
-                                                                repeat(ns, len(y)),
-                                                                repeat(min_occurrences, len(y)),
-                                                                repeat(occurrences, len(y))
+                                                                enumerated_y,
+                                                                enumerated_X,
+                                                                repeat(min_occurrences, len(enumerated_y)),
+                                                                repeat(occurrences, len(enumerated_y))
                                                                 )
                                                    ),
                                desc="(Multiprocessing) Undersampling Dataset",
-                               total=len(y),
+                               total=len(enumerated_y),
                                colour='blue'
                                ):
                 subset_new_X = result[0]
@@ -693,9 +713,6 @@ def undersample(X, y):
                 #  Add to the new X and y dataframes
                 new_X = new_X + subset_new_X
                 undersampled_y = undersampled_y + subset_undersampled_y
-
-    del X  # Remove the old dataset to save RAM
-    collect()  # Garbage collector
 
     # Combine the list of dataframes together into a single DF
     undersampled_X = concat(new_X, axis=0)
@@ -706,7 +723,7 @@ def undersample(X, y):
     # Sometimes there is a race condition where a class will get +1 samples in the class
     # This happens due to the shared memory and multiprocessing
     if not len(undersampled_X) == len(undersampled_y) == (min_occurrences * NUM_RING_MEMBERS):
-        #  Find the number of occurrences for each class so we can find the locate the outlier
+        #  Find the number of occurrences for each class, so we can find the locate the outlier
         for class_num, class_occurrences in Counter(undersampled_y).items():
             #  Check if the number of occurrences is not equal to the undersampled amount
             if class_occurrences != min_occurrences:
@@ -719,12 +736,14 @@ def undersample(X, y):
                             #  Delete the entry
                             undersampled_X.drop(undersampled_X.index[[pos]], inplace=True)
                             del undersampled_y[pos]
+                            print("Cleaned Undersampled Entry")
                             break
+    #  Error Checking
     assert len(undersampled_X) == len(undersampled_y) == (min_occurrences * NUM_RING_MEMBERS)
+    for _, class_occurrences in Counter(undersampled_y).items():
+        assert class_occurrences == min_occurrences
 
     # Shuffle the data one last time
-    undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
-    undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
     undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
     undersampled_X.reset_index(drop=True, inplace=True)
     return undersampled_X, undersampled_y
@@ -765,19 +784,22 @@ def write_dict_to_csv(data_dict):
                 value_orders.append(column_names.index(name))
             #  Sort the transaction values by the order of the indexes in value_orders
             sorted_values = sorted(zip(value_orders, list(tx_metadata.values())))
-            max_sorted_val = len(sorted_values)
+            max_sorted_val = max(sorted_values)[0]
+            sorted_val_idx = 0
             #  Iterate over the length of the column_names to add the sorted values
             for column_idx in range(len(column_names)):
                 #  If the column number is greater than the max, add a placeholder
-                if column_idx+1 > max_sorted_val:
+                if column_idx > max_sorted_val:
                     fp.write(',')
                     continue
                 #  Check if the sorted idx is not the column name index
-                if sorted_values[column_idx][0] != column_idx:
+                if sorted_values[sorted_val_idx][0] != column_idx:
                     fp.write(',')
                     continue
                 else:
-                    fp.write(str(sorted_values[column_idx][1]) + ",")  # Add the value
+                    fp.write(str(sorted_values[sorted_val_idx][1]) + ",")  # Add the value
+                    sorted_val_idx += 1
+            assert sorted_val_idx == len(sorted_values)
             fp.write("\n")
             fp.flush()  # https://stackoverflow.com/questions/3167494/how-often-does-python-flush-to-a-file
             fsync(fp.fileno())
@@ -827,17 +849,15 @@ def main():
             for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
                 tx_hash, transaction_entry = result[0], result[1]  # Unpack the values returned
                 data[tx_hash] = transaction_entry  # Set the enriched version of the tx
-
-        #  Save the raw database to disk
-        with open("./Dataset_Files/dataset.pkl", "wb") as fp:
-            pickle.dump(data, fp)
-        print("./Dataset_Files/dataset.pkl written to disk!")
+    with open("./Dataset_Files/dataset.json", "w") as fp:
+        json.dump(data, fp)
+    print("./Dataset_Files/dataset.json written to disk!")
 
     #################################
     #  Remove Unnecessary Features  #
     #################################
-    with open("./Dataset_Files/dataset.pkl", "rb") as fp:
-        data = pickle.load(fp)
+    with open("./Dataset_Files/dataset.json", "r") as fp:
+        data = json.load(fp)
 
     #  Write the dictionary to disk as a CSV
     write_dict_to_csv(data)
@@ -850,16 +870,16 @@ def main():
     #  Save data and labels to disk for future AI training
     with open("./Dataset_Files/X.pkl", "wb") as fp:
         pickle.dump(X, fp)
+        X.to_csv('./Dataset_Files/X.csv', index=False, header=True)
     with open("./Dataset_Files/y.pkl", "wb") as fp:
         pickle.dump(y, fp)
     #  Error checking; labels and data should be the same length
     assert len(X) == len(y)
-    print("./Dataset_Files/X.pkl and ./Dataset_Files/y.pkl written to disk!")
+    print("./Dataset_Files/X.pkl, ./Dataset_Files/X.csv and ./Dataset_Files/y.pkl were written to disk!")
 
     ###################
     #  Undersampling  #
     ###################
-
     with open("./Dataset_Files/X.pkl", "rb") as fp:
         X = pickle.load(fp)
     with open("./Dataset_Files/y.pkl", "rb") as fp:
@@ -871,6 +891,7 @@ def main():
 
     with open("./Dataset_Files/X_Undersampled.pkl", "wb") as fp:
         pickle.dump(X_Undersampled, fp)
+    X_Undersampled.to_csv('./Dataset_Files/X_Undersampled.csv', index=False, header=True)
     with open("./Dataset_Files/y_Undersampled.pkl", "wb") as fp:
         pickle.dump(y_Undersampled, fp)
 
