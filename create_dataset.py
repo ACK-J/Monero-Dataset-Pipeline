@@ -21,7 +21,7 @@ options.mode.chained_assignment = None  # default='warn'
 '''
 Description: 
 Usage: ./create_dataset.py < Wallets Directory Path >
-Date: 6/8/2022
+Date: 6/14/2022
 Author: ACK-J
 
 Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
@@ -40,7 +40,7 @@ NUM_PROCESSES = cpu_count()  # Set the number of processes for multiprocessing
 NETWORK = "testnet"
 API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
 API_URL = "http://127.0.0.1:8081/api"  # Local Monero Block Explorer
-NUM_RING_MEMBERS = 11  # DL models depend on a fixed number
+NUM_RING_MEMBERS = 11  # DL models depend on a discrete number
 
 # Terminal Colors
 red = '\033[31m'
@@ -584,11 +584,11 @@ def create_feature_set(database):
     return feature_set_df, labels
 
 
-def undersample_processing(y, temp_df, min_occurrences, occurrences):
+def undersample_processing(y, temp_series, min_occurrences, occurrences):
     """
 
     :param y:
-    :param ns:
+    :param temp_series:
     :param min_occurrences:
     :param occurrences:
     :return:
@@ -601,37 +601,22 @@ def undersample_processing(y, temp_df, min_occurrences, occurrences):
         #  Get the true ring position (label) for the current iteration
         ring_pos = int(ring_array["True_Ring_Pos"][ring_array_idx].split("/")[0])
         total_rings = int(ring_array["True_Ring_Pos"][ring_array_idx].split("/")[1])
-        #  Check to see if we hit the maximum number of labels for this position and that the
-        #  number of ring members is what we expect.
+        #  Check to see if we hit the maximum number of labels for this position and that the number of ring members is what we expect.
         if occurrences[ring_pos] < min_occurrences and total_rings == NUM_RING_MEMBERS:
             occurrences[ring_pos] = occurrences[ring_pos] + 1
-            #  https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.iloc.html#pandas.DataFrame.iloc
-            #  Slice out the row from the dataframe but keep it as a dataframe
-            #temp_df = ns.X.iloc[[y_idx]]
             #  https://stackoverflow.com/questions/57392878/how-to-speed-up-pandas-drop-method
             #  Check if the column name has data relating to irrelevant ring signatures and Delete the columns
-            temp_df.drop([column for column in temp_df.columns if "Inputs." in column and "." + str(ring_array_idx) + "." not in column], axis=1, inplace=True)
+            temp_series.drop([column for column in temp_series.index if "Inputs." in column and "." + str(ring_array_idx) + "." not in column], inplace=True)
             #  Check if the column name is for the current ring signature
             #  Rename the column such that it doesn't have the .0. or .1. positioning information
-            temp_df.rename(columns={column: column.replace("Inputs." + str(ring_array_idx) + ".", "Input.") for column in temp_df.columns if "Inputs." in column and "." + str(ring_array_idx) + "." in column}, inplace=True)
+            temp_series.rename({column: column.replace("Inputs." + str(ring_array_idx) + ".", "Input.") for column in temp_series.index if "Inputs." in column and "." + str(ring_array_idx) + "." in column}, inplace=True)
             #  Add to the new X and y dataframes
-            new_X.append(temp_df)
+            new_X.append(temp_series)
             undersampled_y.append(ring_pos)
     return new_X, undersampled_y
 
 
 def undersample_processing_wrapper(y_X_min_occurrences_Occurrences):
-    """
-
-    :param y_X_min_occurrences_Occurrences:
-    :return:
-    """
-    # from line_profiler import LineProfiler
-    # lp = LineProfiler()
-    # lp_wrapper = lp(undersample_processing)
-    # X_Undersampled, y_Undersampled = lp_wrapper(*y_X_min_occurrences_Occurrences)
-    # lp.print_stats()
-    # return X_Undersampled, y_Undersampled
     return undersample_processing(*y_X_min_occurrences_Occurrences)
 
 
@@ -671,53 +656,74 @@ def undersample(X, y):
     del y
     collect()  # Garbage collector
     enumerated_X = []
-    #enumerated_X = [X.iloc[[idx]] for idx, _ in enumerated_y]
-    if not exists("./Dataset_Files/enumerated_X.pkl"):
+    num_splits = 10
+    if not exists("./Dataset_Files/enumerated_X_1.pkl"):
         for i in tqdm(range(len(enumerated_y)), desc="Splicing Dataset Into Chunks", total=len(enumerated_y), colour='blue'):
-            enumerated_X.append(X.iloc[[0]])
+            enumerated_X.append(X.iloc[0])
             X = X[1:]
-            if i % 100000 == 0:
-                collect()
         del X  # Remove the old dataset to save RAM
         collect()  # Garbage collector
-        with open("./Dataset_Files/enumerated_X.pkl", "wb") as fp:
-            pickle.dump(enumerated_X, fp)
-        print("./Dataset_Files/enumerated_X.pkl Written to disk!")
+        split = len(enumerated_X)//num_splits
+        for i in range(1, num_splits+1):
+            with open("./Dataset_Files/enumerated_X_" + str(i) + ".pkl", "wb") as fp:
+                if i == 1:
+                    pickle.dump(enumerated_X[:split], fp)
+                elif i == num_splits:
+                    pickle.dump(enumerated_X[split * (i-1):], fp)
+                else:
+                    pickle.dump(enumerated_X[split * (i-1):split*i], fp)
+            with open("./Dataset_Files/enumerated_y_" + str(i) + ".pkl", "wb") as fp:
+                if i == 1:
+                    pickle.dump(enumerated_y[:split], fp)
+                elif i == num_splits:
+                    pickle.dump(enumerated_y[split * (i-1):], fp)
+                else:
+                    pickle.dump(enumerated_y[split * (i-1):split*i], fp)
+            print("./Dataset_Files/enumerated_X_" + str(i) + ".pkl and ./Dataset_Files/enumerated_y_" + str(i) + ".pkl Written to disk!")
     else:
         del X  # Remove the old dataset to save RAM
         collect()  # Garbage collector
-        with open("./Dataset_Files/enumerated_X.pkl", "rb") as fp:
-            enumerated_X = pickle.load(fp)
-    assert len(enumerated_X) == len(enumerated_y)
     with Manager() as manager:
         #  Create a dictionary for all 11 spots in a ring signature
         occurrences = manager.dict()
         for i in range(NUM_RING_MEMBERS):
             occurrences[i + 1] = 0
-        #  Multiprocessing enriching each transaction
-        with manager.Pool(processes=NUM_PROCESSES) as pool:
-            for result in tqdm(pool.imap_unordered(func=undersample_processing_wrapper,
-                                                   iterable=zip(
-                                                                enumerated_y,
-                                                                enumerated_X,
-                                                                repeat(min_occurrences, len(enumerated_y)),
-                                                                repeat(occurrences, len(enumerated_y))
-                                                                )
-                                                   ),
-                               desc="(Multiprocessing) Undersampling Dataset",
-                               total=len(enumerated_y),
-                               colour='blue'
-                               ):
-                subset_new_X = result[0]
-                subset_undersampled_y = result[1]
-                #  Add to the new X and y dataframes
-                new_X = new_X + subset_new_X
-                undersampled_y = undersampled_y + subset_undersampled_y
-
-    # Combine the list of dataframes together into a single DF
-    undersampled_X = concat(new_X, axis=0)
+        file_idx = 1
+        while sum(list(occurrences.values())) < (min_occurrences * NUM_RING_MEMBERS) and file_idx <= num_splits:
+            print("Number of Undersampled Transactions: " + str(sum(list(occurrences.values()))))
+            with open("./Dataset_Files/enumerated_X_" + str(file_idx) + ".pkl", "rb") as fp:
+                enumerated_X = pickle.load(fp)
+            with open("./Dataset_Files/enumerated_y_" + str(file_idx) + ".pkl", "rb") as fp:
+                enumerated_y = pickle.load(fp)
+            assert len(enumerated_X) == len(enumerated_y)
+            file_idx += 1
+            #  Multiprocessing enriching each transaction
+            with manager.Pool(processes=NUM_PROCESSES) as pool:
+                for result in tqdm(pool.imap_unordered(func=undersample_processing_wrapper,
+                                                       iterable=zip(
+                                                                    enumerated_y,
+                                                                    enumerated_X,
+                                                                    repeat(min_occurrences, len(enumerated_y)),
+                                                                    repeat(occurrences, len(enumerated_y))
+                                                                    )
+                                                       ),
+                                   desc="(Multiprocessing) Undersampling Dataset (Part " + str(file_idx-1) + ")",
+                                   total=len(enumerated_y),
+                                   colour='blue'
+                                   ):
+                    subset_new_X = result[0]
+                    subset_undersampled_y = result[1]
+                    #  Add to the new X and y dataframes
+                    new_X = new_X + subset_new_X
+                    undersampled_y = undersampled_y + subset_undersampled_y
+            del enumerated_X
+            del enumerated_y
+            collect()
+    # Combine the list of series together into a single DF
+    undersampled_X = DataFrame(new_X)
     del new_X
     collect()  # Garbage collector
+    undersampled_X.fillna(-1, inplace=True)
     undersampled_X.reset_index(drop=True, inplace=True)
 
     # Sometimes there is a race condition where a class will get +1 samples in the class
@@ -736,7 +742,7 @@ def undersample(X, y):
                             #  Delete the entry
                             undersampled_X.drop(undersampled_X.index[[pos]], inplace=True)
                             del undersampled_y[pos]
-                            print("Cleaned Undersampled Entry")
+                            print(yellow + "Cleaned Extra Entry Due to Race Condition" + reset)
                             break
     #  Error Checking
     assert len(undersampled_X) == len(undersampled_y) == (min_occurrences * NUM_RING_MEMBERS)
@@ -809,73 +815,73 @@ def write_dict_to_csv(data_dict):
 
 
 def main():
-    # # Error Checking for command line args
-    # if len(argv) != 2:
-    #     print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
-    #     exit(1)
-    # try:  # Check to see if the API URL given can be connected
-    #     assert get(API_URL + "/block/1").status_code == 200
-    # except ConnectionError as e:
-    #     print("Error: " + red + NETWORK + reset + " block explorer located at " + API_URL + " refused connection!")
-    #     exit(1)
-    # # Configuration alert
-    # print("The dataset is being collected for the " + blue + NETWORK + reset + " network using " + API_URL + " as a block explorer!")
-    #
-    # if exists("./Dataset_Files/dataset.csv"):
-    #     while True:
-    #         answer = input(blue + "Dataset files exists already. They will be overwritten, Delete them? (y/n)" + reset)
-    #         if answer.lower()[0] == "y":
-    #             remove("./Dataset_Files/dataset.csv")
-    #             break
-    #         elif answer.lower()[0] == "n":
-    #             break
-    #
-    # ###########################################
-    # #  Create the dataset from files on disk  #
-    # ###########################################
-    # global data
-    # print(blue + "Opening " + str(argv[1]) + reset)
-    # #  Find where the wallets are stored and combine the exported csv files
-    # discover_wallet_directories(argv[1])
-    #
-    # #  Multiprocessing References
-    # #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
-    # #  https://thebinarynotes.com/python-multiprocessing/
-    # #  https://docs.python.org/3/library/multiprocessing.html
-    # #  https://stackoverflow.com/questions/6832554/multiprocessing-how-do-i-share-a-dict-among-multiple-processes
-    # with Manager() as manager:
-    #     #  Multiprocessing enriching each transaction
-    #     with manager.Pool(processes=NUM_PROCESSES) as pool:
-    #         for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
-    #             tx_hash, transaction_entry = result[0], result[1]  # Unpack the values returned
-    #             data[tx_hash] = transaction_entry  # Set the enriched version of the tx
-    # with open("./Dataset_Files/dataset.json", "w") as fp:
-    #     json.dump(data, fp)
-    # print("./Dataset_Files/dataset.json written to disk!")
-    #
-    # #################################
-    # #  Remove Unnecessary Features  #
-    # #################################
-    # with open("./Dataset_Files/dataset.json", "r") as fp:
-    #     data = json.load(fp)
-    #
-    # #  Write the dictionary to disk as a CSV
-    # write_dict_to_csv(data)
-    #
-    # #  Feature selection on raw dataset
-    # X, y = create_feature_set(data)
-    # del data
-    # collect()  # Garbage collector
-    #
-    # #  Save data and labels to disk for future AI training
-    # with open("./Dataset_Files/X.pkl", "wb") as fp:
-    #     pickle.dump(X, fp)
-    #     X.to_csv('./Dataset_Files/X.csv', index=False, header=True)
-    # with open("./Dataset_Files/y.pkl", "wb") as fp:
-    #     pickle.dump(y, fp)
-    # #  Error checking; labels and data should be the same length
-    # assert len(X) == len(y)
-    # print("./Dataset_Files/X.pkl, ./Dataset_Files/X.csv and ./Dataset_Files/y.pkl were written to disk!")
+    # Error Checking for command line args
+    if len(argv) != 2:
+        print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
+        exit(1)
+    try:  # Check to see if the API URL given can be connected
+        assert get(API_URL + "/block/1").status_code == 200
+    except ConnectionError as e:
+        print("Error: " + red + NETWORK + reset + " block explorer located at " + API_URL + " refused connection!")
+        exit(1)
+    # Configuration alert
+    print("The dataset is being collected for the " + blue + NETWORK + reset + " network using " + API_URL + " as a block explorer!")
+
+    if exists("./Dataset_Files/dataset.csv"):
+        while True:
+            answer = input(blue + "Dataset files exists already. They will be overwritten, Delete them? (y/n)" + reset)
+            if answer.lower()[0] == "y":
+                remove("./Dataset_Files/dataset.csv")
+                break
+            elif answer.lower()[0] == "n":
+                break
+
+    ###########################################
+    #  Create the dataset from files on disk  #
+    ###########################################
+    global data
+    print(blue + "Opening " + str(argv[1]) + reset)
+    #  Find where the wallets are stored and combine the exported csv files
+    discover_wallet_directories(argv[1])
+
+    #  Multiprocessing References
+    #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
+    #  https://thebinarynotes.com/python-multiprocessing/
+    #  https://docs.python.org/3/library/multiprocessing.html
+    #  https://stackoverflow.com/questions/6832554/multiprocessing-how-do-i-share-a-dict-among-multiple-processes
+    with Manager() as manager:
+        #  Multiprocessing enriching each transaction
+        with manager.Pool(processes=NUM_PROCESSES) as pool:
+            for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
+                tx_hash, transaction_entry = result[0], result[1]  # Unpack the values returned
+                data[tx_hash] = transaction_entry  # Set the enriched version of the tx
+    with open("./Dataset_Files/dataset.json", "w") as fp:
+        json.dump(data, fp)
+    print("./Dataset_Files/dataset.json written to disk!")
+
+    #################################
+    #  Remove Unnecessary Features  #
+    #################################
+    with open("./Dataset_Files/dataset.json", "r") as fp:
+        data = json.load(fp)
+
+    #  Write the dictionary to disk as a CSV
+    write_dict_to_csv(data)
+
+    #  Feature selection on raw dataset
+    X, y = create_feature_set(data)
+    del data
+    collect()  # Garbage collector
+
+    #  Save data and labels to disk for future AI training
+    with open("./Dataset_Files/X.pkl", "wb") as fp:
+        pickle.dump(X, fp)
+        X.to_csv('./Dataset_Files/X.csv', index=False, header=True)
+    with open("./Dataset_Files/y.pkl", "wb") as fp:
+        pickle.dump(y, fp)
+    #  Error checking; labels and data should be the same length
+    assert len(X) == len(y)
+    print("./Dataset_Files/X.pkl, ./Dataset_Files/X.csv and ./Dataset_Files/y.pkl were written to disk!")
 
     ###################
     #  Undersampling  #
