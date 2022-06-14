@@ -674,7 +674,7 @@ def undersample(X, y):
     #enumerated_X = [X.iloc[[idx]] for idx, _ in enumerated_y]
     if not exists("./Dataset_Files/enumerated_X.pkl"):
         for i in tqdm(range(len(enumerated_y)), desc="Splicing Dataset Into Chunks", total=len(enumerated_y), colour='blue'):
-            enumerated_X.append(X.iloc[0])
+            enumerated_X.append(X.iloc[[0]])
             X = X[1:]
             if i % 100000 == 0:
                 collect()
@@ -809,73 +809,73 @@ def write_dict_to_csv(data_dict):
 
 
 def main():
-    # Error Checking for command line args
-    if len(argv) != 2:
-        print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
-        exit(1)
-    try:  # Check to see if the API URL given can be connected
-        assert get(API_URL + "/block/1").status_code == 200
-    except ConnectionError as e:
-        print("Error: " + red + NETWORK + reset + " block explorer located at " + API_URL + " refused connection!")
-        exit(1)
-    # Configuration alert
-    print("The dataset is being collected for the " + blue + NETWORK + reset + " network using " + API_URL + " as a block explorer!")
-
-    if exists("./Dataset_Files/dataset.csv"):
-        while True:
-            answer = input(blue + "Dataset files exists already. They will be overwritten, Delete them? (y/n)" + reset)
-            if answer.lower()[0] == "y":
-                remove("./Dataset_Files/dataset.csv")
-                break
-            elif answer.lower()[0] == "n":
-                break
-
-    ###########################################
-    #  Create the dataset from files on disk  #
-    ###########################################
-    global data
-    print(blue + "Opening " + str(argv[1]) + reset)
-    #  Find where the wallets are stored and combine the exported csv files
-    discover_wallet_directories(argv[1])
-
-    #  Multiprocessing References
-    #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
-    #  https://thebinarynotes.com/python-multiprocessing/
-    #  https://docs.python.org/3/library/multiprocessing.html
-    #  https://stackoverflow.com/questions/6832554/multiprocessing-how-do-i-share-a-dict-among-multiple-processes
-    with Manager() as manager:
-        #  Multiprocessing enriching each transaction
-        with manager.Pool(processes=NUM_PROCESSES) as pool:
-            for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
-                tx_hash, transaction_entry = result[0], result[1]  # Unpack the values returned
-                data[tx_hash] = transaction_entry  # Set the enriched version of the tx
-    with open("./Dataset_Files/dataset.json", "w") as fp:
-        json.dump(data, fp)
-    print("./Dataset_Files/dataset.json written to disk!")
-
-    #################################
-    #  Remove Unnecessary Features  #
-    #################################
-    with open("./Dataset_Files/dataset.json", "r") as fp:
-        data = json.load(fp)
-
-    #  Write the dictionary to disk as a CSV
-    write_dict_to_csv(data)
-
-    #  Feature selection on raw dataset
-    X, y = create_feature_set(data)
-    del data
-    collect()  # Garbage collector
-
-    #  Save data and labels to disk for future AI training
-    with open("./Dataset_Files/X.pkl", "wb") as fp:
-        pickle.dump(X, fp)
-        X.to_csv('./Dataset_Files/X.csv', index=False, header=True)
-    with open("./Dataset_Files/y.pkl", "wb") as fp:
-        pickle.dump(y, fp)
-    #  Error checking; labels and data should be the same length
-    assert len(X) == len(y)
-    print("./Dataset_Files/X.pkl, ./Dataset_Files/X.csv and ./Dataset_Files/y.pkl were written to disk!")
+    # # Error Checking for command line args
+    # if len(argv) != 2:
+    #     print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
+    #     exit(1)
+    # try:  # Check to see if the API URL given can be connected
+    #     assert get(API_URL + "/block/1").status_code == 200
+    # except ConnectionError as e:
+    #     print("Error: " + red + NETWORK + reset + " block explorer located at " + API_URL + " refused connection!")
+    #     exit(1)
+    # # Configuration alert
+    # print("The dataset is being collected for the " + blue + NETWORK + reset + " network using " + API_URL + " as a block explorer!")
+    #
+    # if exists("./Dataset_Files/dataset.csv"):
+    #     while True:
+    #         answer = input(blue + "Dataset files exists already. They will be overwritten, Delete them? (y/n)" + reset)
+    #         if answer.lower()[0] == "y":
+    #             remove("./Dataset_Files/dataset.csv")
+    #             break
+    #         elif answer.lower()[0] == "n":
+    #             break
+    #
+    # ###########################################
+    # #  Create the dataset from files on disk  #
+    # ###########################################
+    # global data
+    # print(blue + "Opening " + str(argv[1]) + reset)
+    # #  Find where the wallets are stored and combine the exported csv files
+    # discover_wallet_directories(argv[1])
+    #
+    # #  Multiprocessing References
+    # #  https://leimao.github.io/blog/Python-tqdm-Multiprocessing/
+    # #  https://thebinarynotes.com/python-multiprocessing/
+    # #  https://docs.python.org/3/library/multiprocessing.html
+    # #  https://stackoverflow.com/questions/6832554/multiprocessing-how-do-i-share-a-dict-among-multiple-processes
+    # with Manager() as manager:
+    #     #  Multiprocessing enriching each transaction
+    #     with manager.Pool(processes=NUM_PROCESSES) as pool:
+    #         for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
+    #             tx_hash, transaction_entry = result[0], result[1]  # Unpack the values returned
+    #             data[tx_hash] = transaction_entry  # Set the enriched version of the tx
+    # with open("./Dataset_Files/dataset.json", "w") as fp:
+    #     json.dump(data, fp)
+    # print("./Dataset_Files/dataset.json written to disk!")
+    #
+    # #################################
+    # #  Remove Unnecessary Features  #
+    # #################################
+    # with open("./Dataset_Files/dataset.json", "r") as fp:
+    #     data = json.load(fp)
+    #
+    # #  Write the dictionary to disk as a CSV
+    # write_dict_to_csv(data)
+    #
+    # #  Feature selection on raw dataset
+    # X, y = create_feature_set(data)
+    # del data
+    # collect()  # Garbage collector
+    #
+    # #  Save data and labels to disk for future AI training
+    # with open("./Dataset_Files/X.pkl", "wb") as fp:
+    #     pickle.dump(X, fp)
+    #     X.to_csv('./Dataset_Files/X.csv', index=False, header=True)
+    # with open("./Dataset_Files/y.pkl", "wb") as fp:
+    #     pickle.dump(y, fp)
+    # #  Error checking; labels and data should be the same length
+    # assert len(X) == len(y)
+    # print("./Dataset_Files/X.pkl, ./Dataset_Files/X.csv and ./Dataset_Files/y.pkl were written to disk!")
 
     ###################
     #  Undersampling  #
