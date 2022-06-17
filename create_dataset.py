@@ -12,9 +12,9 @@ from datetime import datetime
 from collections import Counter
 from sklearn.utils import shuffle
 from cherrypicker import CherryPicker  # https://pypi.org/project/cherrypicker/
-from pandas import DataFrame, concat, options
+from pandas import DataFrame, options
+from multiprocessing import cpu_count, Manager
 from requests.exceptions import ConnectionError
-from multiprocessing import Pool, cpu_count, Manager
 from os import walk, getcwd, chdir, listdir, fsync, system, remove
 options.mode.chained_assignment = None  # default='warn'
 
@@ -45,6 +45,7 @@ NUM_RING_MEMBERS = 11  # DL models depend on a discrete number
 # Terminal Colors
 red = '\033[31m'
 blue = "\033[0;34m"
+green = "\033[92m"
 yellow = "\033[1;33m"
 reset = '\033[0m'
 
@@ -65,6 +66,7 @@ def enrich_data(tx_dict_item):
     """
     tx_hash = tx_dict_item[0]
     transaction_entry = tx_dict_item[1]
+
     tx_response = get_xmr_tx(str(tx_hash))
     block_response = get_xmr_block(str(tx_response["block_height"]))
     previous_block_response = get_xmr_block(str(int(tx_response["block_height"]) - 1))
@@ -146,7 +148,7 @@ def enrich_data(tx_dict_item):
         #     transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Occurrences'][str(each)] = 0
         #     transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Times'][str(each)] = []
 
-        # Iterate over each ring in the output
+        # Iterate over each mixin in the input
         for ring_mem_num, ring in enumerate(input['mixins']):
             prev_tx = get_xmr_tx(ring['tx_hash'])
             #  Get the number of inputs and outputs from the previous transaction involving the mixin
@@ -222,10 +224,10 @@ def enrich_data(tx_dict_item):
     # Move labels to Input dictionary (This is kinda jank but it's the best way I can think of)
     for input_key_image, true_ring_position in transaction_entry['Input_True_Rings'].items():
         #  Match the true spent ring's key image to one of the inputs
-        for each_input in transaction_entry['Inputs']:
-            if each_input['Key_Image'] == input_key_image:
+        for each_input in range(len(transaction_entry['Inputs'])):
+            if transaction_entry['Inputs'][each_input]['Key_Image'] == input_key_image:
                 #  add a field for the input for the true ring spent
-                each_input['Ring_no/Ring_size'] = true_ring_position
+                transaction_entry['Inputs'][each_input]['Ring_no/Ring_size'] = true_ring_position
     #  Delete the temporary dict() holding the true ring positions
     del transaction_entry['Input_True_Rings']
 
@@ -449,16 +451,17 @@ def discover_wallet_directories(dir_to_search):
     global data  # Import the global database
     total_txs = 0
     num_bad_txs = 0
-    pool = Pool(processes=NUM_PROCESSES)  # Multiprocessing pool
-    # Multiprocess combining the 6 csv files for each wallet
-    for wallet_tx_data in tqdm(pool.imap_unordered(func=combine_files, iterable=Wallet_info), desc="(Multiprocessing) Combining Exported Wallet Files", total=len(Wallet_info), colour='blue'):
-        #  Make sure there are transactions in the data before adding it to the dataset
-        for tx_hash, tx_data in wallet_tx_data.items():
-            if "Input_True_Rings" in tx_data.keys():
-                data[tx_hash] = tx_data
-                total_txs += 1
-            else:
-                num_bad_txs += 1
+    with Manager() as manager:
+        with manager.Pool(processes=NUM_PROCESSES) as pool:
+            # Multiprocess combining the 6 csv files for each wallet
+            for wallet_tx_data in tqdm(pool.imap_unordered(func=combine_files, iterable=Wallet_info), desc="(Multiprocessing) Combining Exported Wallet Files", total=len(Wallet_info), colour='blue'):
+                #  Make sure there are transactions in the data before adding it to the dataset
+                for tx_hash, tx_data in wallet_tx_data.items():
+                    if "Input_True_Rings" in tx_data.keys() and len(tx_data["Input_True_Rings"]) > 0:
+                        data[tx_hash] = tx_data
+                        total_txs += 1
+                    else:
+                        num_bad_txs += 1
     print("There were " + str(num_bad_txs) + " bad transactions that were deleted out of a total " + str(total_txs) + " transactions!")
     print("The dataset now includes " + str(len(data)) + " transactions.")
 
@@ -516,10 +519,7 @@ def clean_transaction(transaction):
 
 def create_feature_set(database):
     """
-    This function takes in a nested python dictionary dataset, removes
-    any entries that would not be a useful feature to a machine learning
-    model, flattens the dictionary and converts it to a dataframe. An
-    accompanying labels list is also returned.
+
     :param database: Nested dictionary of Monero transaction metadata
     :return: A pandas dataframe of the input data and a list of labels
     """
@@ -535,29 +535,30 @@ def create_feature_set(database):
         except Exception as e:
             num_errors += 1
             continue  # Dont process the tx and loop
+        assert len(database[tx_hash]['Inputs']) == len(private_info['True_Ring_Pos'])
+        num_of_valid_txs += 1
         #  Flatten each transaction and iterate over each feature
-        for k, v in CherryPicker(database[tx_hash]).flatten(delim='.').get().items():
+        for feature_name, feature_value in CherryPicker(database[tx_hash]).flatten(delim='.').get().items():
             #  Check if the feature name is not already in the feature set
-            if k not in feature_set.keys():
-                feature_set[k] = []
+            if feature_name not in feature_set.keys():
+                feature_set[feature_name] = []
                 #  add any missing values
                 for i in range(num_of_valid_txs-1):
-                    feature_set[k].append(-1)
+                    feature_set[feature_name].append(-1)
                 #  Add it as a new feature
-                feature_set[k].append(v)
+                feature_set[feature_name].append(feature_value)
             else:  # If the feature is already in the feature set
                 #  Check if there are any transactions that did not have this feature
-                if len(feature_set[k]) < num_of_valid_txs:
+                if len(feature_set[feature_name]) < num_of_valid_txs:
                     #  Add -1 for those occurrences
-                    for i in range(num_of_valid_txs-len(feature_set[k])-1):
-                        feature_set[k].append(-1)
+                    for i in range(num_of_valid_txs-len(feature_set[feature_name])-1):
+                        feature_set[feature_name].append(-1)
                 #  Append the feature
-                feature_set[k].append(v)
-        num_of_valid_txs += 1
+                feature_set[feature_name].append(feature_value)
         #  add the labels to the list
         labels.append(private_info)
 
-    print("Number of skipped transactions:", num_errors)
+    print("Number of skipped transactions: " + blue + str(num_errors) + reset)
     assert len(labels) != 0
     del database
     collect()  # Garbage Collector
@@ -576,15 +577,12 @@ def create_feature_set(database):
 
     #  Shuffle the data
     feature_set_df, labels = shuffle(feature_set_df, labels)
-
     #  Reset the indexing after the shuffles
     feature_set_df.reset_index(drop=True, inplace=True)
-
-    #  Replace any Null values with -1
     return feature_set_df, labels
 
 
-def undersample_processing(y, temp_series, min_occurrences, occurrences):
+def undersample_processing(y, series, min_occurrences, occurrences):
     """
 
     :param y:
@@ -598,6 +596,8 @@ def undersample_processing(y, temp_series, min_occurrences, occurrences):
     y_idx, ring_array = y
     #  For each array of ring members iterate over each index
     for ring_array_idx in range(len(ring_array["True_Ring_Pos"])):
+        #  Make a copy of the data since we need to delete portions of it
+        temp_series = series.copy(deep=True)
         #  Get the true ring position (label) for the current iteration
         ring_pos = int(ring_array["True_Ring_Pos"][ring_array_idx].split("/")[0])
         total_rings = int(ring_array["True_Ring_Pos"][ring_array_idx].split("/")[1])
@@ -609,15 +609,15 @@ def undersample_processing(y, temp_series, min_occurrences, occurrences):
             temp_series.drop([column for column in temp_series.index if "Inputs." in column and "." + str(ring_array_idx) + "." not in column], inplace=True)
             #  Check if the column name is for the current ring signature
             #  Rename the column such that it doesn't have the .0. or .1. positioning information
-            temp_series.rename({column: column.replace("Inputs." + str(ring_array_idx) + ".", "Input.") for column in temp_series.index if "Inputs." in column and "." + str(ring_array_idx) + "." in column}, inplace=True)
+            temp_series.rename({column: column.replace("Inputs." + str(ring_array_idx) + ".", "Input.") for column in temp_series.index if "Inputs." + str(ring_array_idx) + "." in column}, inplace=True)
             #  Add to the new X and y dataframes
             new_X.append(temp_series)
             undersampled_y.append(ring_pos)
     return new_X, undersampled_y
 
 
-def undersample_processing_wrapper(y_X_min_occurrences_Occurrences):
-    return undersample_processing(*y_X_min_occurrences_Occurrences)
+def undersample_processing_wrapper(all):
+    return undersample_processing(*all)
 
 
 def undersample(X, y):
@@ -632,10 +632,10 @@ def undersample(X, y):
     for ring_array in y:
         for idx, true_ring_pos in ring_array["True_Ring_Pos"].items():
             flattened_true_spend.append(int(true_ring_pos.split("/")[0]))
-    #  Reset pandas indexing just incase
-    X.reset_index(drop=True, inplace=True)
     #  Count the amount of true labels at each position in the ring signature
     labels_distribution = Counter(flattened_true_spend)
+    num_total_rings = len(flattened_true_spend)
+    del flattened_true_spend
 
     # Error checking
     try:
@@ -647,18 +647,17 @@ def undersample(X, y):
 
     #  Find the smallest number of occurrences
     min_occurrences = labels_distribution.most_common()[len(labels_distribution)-1][1]
-    print("Undersampling to " + str(min_occurrences) + " transactions per class. A total of " + str(min_occurrences*NUM_RING_MEMBERS) + " transactions.")
+    print("Undersampling to " + blue + str(min_occurrences) + reset + " transactions per class. A total of " + blue + str(min_occurrences*NUM_RING_MEMBERS) + reset + " transactions.\n")
     #max_occurrences = labels_distribution.most_common(1)[0][1]
+    del labels_distribution
 
-    undersampled_y = []
-    new_X = []
     enumerated_y = list(enumerate(y))
     del y
     collect()  # Garbage collector
     enumerated_X = []
     num_splits = 10
     if not exists("./Dataset_Files/enumerated_X_1.pkl"):
-        for i in tqdm(range(len(enumerated_y)), desc="Splicing Dataset Into Chunks", total=len(enumerated_y), colour='blue'):
+        for _ in tqdm(range(len(enumerated_y)), desc="Splicing Dataset Into Chunks", total=len(enumerated_y), colour='blue'):
             enumerated_X.append(X.iloc[0])
             X = X[1:]
         del X  # Remove the old dataset to save RAM
@@ -679,26 +678,32 @@ def undersample(X, y):
                     pickle.dump(enumerated_y[split * (i-1):], fp)
                 else:
                     pickle.dump(enumerated_y[split * (i-1):split*i], fp)
-            print("./Dataset_Files/enumerated_X_" + str(i) + ".pkl and ./Dataset_Files/enumerated_y_" + str(i) + ".pkl Written to disk!")
+            print(blue + "./Dataset_Files/enumerated_X_" + str(i) + ".pkl" + reset + " and " + blue + "./Dataset_Files/enumerated_y_" + str(i) + ".pkl" + reset + " written to disk!")
     else:
         del X  # Remove the old dataset to save RAM
         collect()  # Garbage collector
+    print()
+
     with Manager() as manager:
+        undersampled_y = []
+        new_X = []
         #  Create a dictionary for all 11 spots in a ring signature
         occurrences = manager.dict()
         for i in range(NUM_RING_MEMBERS):
             occurrences[i + 1] = 0
         file_idx = 1
         while sum(list(occurrences.values())) < (min_occurrences * NUM_RING_MEMBERS) and file_idx <= num_splits:
-            print("Number of Undersampled Transactions: " + str(sum(list(occurrences.values()))))
+            print("Number of Undersampled Ring Signatures: " + blue + str(sum(list(occurrences.values()))) + reset)
             with open("./Dataset_Files/enumerated_X_" + str(file_idx) + ".pkl", "rb") as fp:
                 enumerated_X = pickle.load(fp)
             with open("./Dataset_Files/enumerated_y_" + str(file_idx) + ".pkl", "rb") as fp:
                 enumerated_y = pickle.load(fp)
             assert len(enumerated_X) == len(enumerated_y)
             file_idx += 1
-            #  Multiprocessing enriching each transaction
-            with manager.Pool(processes=NUM_PROCESSES) as pool:
+            #  If processes is not set to 1 there will be a race condition where the data will get
+            #  messed up and extra samples will be added. I have no idea how to fix this besides
+            #  getting rid of the multiprocessing.
+            with manager.Pool(processes=1) as pool:
                 for result in tqdm(pool.imap_unordered(func=undersample_processing_wrapper,
                                                        iterable=zip(
                                                                     enumerated_y,
@@ -706,7 +711,7 @@ def undersample(X, y):
                                                                     repeat(min_occurrences, len(enumerated_y)),
                                                                     repeat(occurrences, len(enumerated_y))
                                                                     )
-                                                       ),
+                                                      ),
                                    desc="(Multiprocessing) Undersampling Dataset (Part " + str(file_idx-1) + ")",
                                    total=len(enumerated_y),
                                    colour='blue'
@@ -719,35 +724,21 @@ def undersample(X, y):
             del enumerated_X
             del enumerated_y
             collect()
-    # Combine the list of series together into a single DF
-    undersampled_X = DataFrame(new_X)
+        # Combine the list of series together into a single DF
+        undersampled_X = DataFrame(new_X)
     del new_X
     collect()  # Garbage collector
     undersampled_X.fillna(-1, inplace=True)
     undersampled_X.reset_index(drop=True, inplace=True)
 
-    # Sometimes there is a race condition where a class will get +1 samples in the class
-    # This happens due to the shared memory and multiprocessing
-    if not len(undersampled_X) == len(undersampled_y) == (min_occurrences * NUM_RING_MEMBERS):
-        #  Find the number of occurrences for each class, so we can find the locate the outlier
-        for class_num, class_occurrences in Counter(undersampled_y).items():
-            #  Check if the number of occurrences is not equal to the undersampled amount
-            if class_occurrences != min_occurrences:
-                #  Iterate the number of times the extra class occurred
-                for _ in range(class_occurrences-min_occurrences):
-                    #  Iterate over the labels
-                    for pos, val in enumerate(undersampled_y):
-                        #  Check if the label is an occurrence of the bad class
-                        if val == class_num:
-                            #  Delete the entry
-                            undersampled_X.drop(undersampled_X.index[[pos]], inplace=True)
-                            del undersampled_y[pos]
-                            print(yellow + "Cleaned Extra Entry Due to Race Condition" + reset)
-                            break
     #  Error Checking
     assert len(undersampled_X) == len(undersampled_y) == (min_occurrences * NUM_RING_MEMBERS)
     for _, class_occurrences in Counter(undersampled_y).items():
-        assert class_occurrences == min_occurrences
+        try:
+            assert class_occurrences == min_occurrences
+        except AssertionError as e:
+            print(Counter(undersampled_y).items())
+            exit()
 
     # Shuffle the data one last time
     undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
@@ -814,6 +805,109 @@ def write_dict_to_csv(data_dict):
     system("sed -i '1,2s|HEADERS|" + ", ".join(column_names) + "|g' ./Dataset_Files/dataset.csv")
 
 
+def validate_data_integrity(X, y, undersampled=False):
+    print(blue + "\nData Integrity Check" + reset)
+    with open("./Dataset_Files/dataset.json", "r") as fp:
+        original_data = json.load(fp)
+    if undersampled:
+        X_Undersampled = X
+        y_Undersampled = y
+        bad = 0
+        good = 0
+        bad_val = len(X_Undersampled.index[X_Undersampled['Input.Median_Ring_Time'] == -1])
+        skip = 0
+        key_error = 0
+        #  Make sure there are no duplicate rows
+        assert len(X_Undersampled[X_Undersampled.duplicated()]) == 0
+
+        #  Get each dict of data values
+        for i, val in tqdm(enumerate(original_data.values()), total=len(original_data), colour='blue', desc="Validating Undersampled Dataset"):
+            for input_num in range(len(val['Inputs'])):
+                #  check if the median ring time is not null
+                mean_ring_time = val['Inputs'][input_num]['Mean_Ring_Time']
+                med_ring_time = val['Inputs'][input_num]['Median_Ring_Time']
+                #  Find all occurrences of the median ring time in the undersampled dataset
+                find_undersampled_mean_idx = X_Undersampled.index[X_Undersampled['Input.Mean_Ring_Time'] == mean_ring_time].tolist()
+                find_undersampled_med_idx = X_Undersampled.index[X_Undersampled['Input.Median_Ring_Time'] == med_ring_time].tolist()
+                #  Check if there were occurrences
+                if find_undersampled_mean_idx and find_undersampled_med_idx:
+                    if len(find_undersampled_mean_idx) == 1 and len(find_undersampled_med_idx) == 1 and find_undersampled_mean_idx[0] == find_undersampled_med_idx[0]:
+                        undersample_index = find_undersampled_mean_idx[0]
+                        try:
+                            ground_truth = int(val['Inputs'][input_num]['Ring_no/Ring_size'].split("/")[0])
+                        except KeyError as e:
+                            key_error += 1
+                            continue
+                        if ground_truth == y_Undersampled[undersample_index]:
+                            good += 1
+                        else:
+                            bad += 1
+                            print(input_num)
+                    else:
+                        skip += 1
+        print("=============================")
+        print("|| Total Samples: " + blue + str(len(X_Undersampled)) + reset)
+        print("|| Validated Samples: " + blue + str(good) + reset)
+        print("|| Bad Samples: " + red + str(bad) + reset)
+        print("|| Null Value: " + red + str(bad_val) + reset)
+        print("|| Skipped Samples: " + red + str(skip) + reset)
+        print("|| Key Error: " + red + str(key_error) + reset)
+        if (len(X_Undersampled) / good * 100) == 100:
+            print("|| " + green + "100% data integrity!" + reset)
+        else:
+            print("|| " + red + "ERROR: " + str((len(X_Undersampled)/good*100)-100) + "% data corruption!" + reset)
+            exit(1)
+    else:
+        bad = 0
+        good = 0
+        bad_val = 0
+        skip = 0
+        key_error = 0
+        total = 0
+        #  Get each dict of data values
+        for i, val in tqdm(enumerate(original_data.values()), total=len(original_data), colour='blue', desc="Validating Dataset"):
+            for input_num in range(len(val['Inputs'])):
+                #  check if the median ring time is not null
+                mean_ring_time = val['Inputs'][input_num]['Mean_Ring_Time']
+                med_ring_time = val['Inputs'][input_num]['Median_Ring_Time']
+                #  Find all occurrences of the median ring time in the undersampled dataset
+                find_undersampled_mean_idx = X.index[X['Inputs.' + str(input_num) + '.Mean_Ring_Time'] == mean_ring_time].tolist()
+                find_undersampled_med_idx = X.index[X['Inputs.' + str(input_num) + '.Median_Ring_Time'] == med_ring_time].tolist()
+
+                #  Check if there were occurrences
+                if find_undersampled_mean_idx and find_undersampled_med_idx:
+                    if len(find_undersampled_mean_idx) == 1 and len(find_undersampled_med_idx) == 1 and find_undersampled_mean_idx[0] == find_undersampled_med_idx[0]:
+                        total += 1
+                        undersample_index = find_undersampled_mean_idx[0]
+                        try:
+                            ground_truth = int(val['Inputs'][input_num]['Ring_no/Ring_size'].split("/")[0])
+                        except KeyError as e:
+                            key_error += 1
+                            continue
+                        if input_num >= len(y[undersample_index]['True_Ring_Pos']):
+                            bad += 1
+                            print(input_num)
+                        elif ground_truth == int(y[undersample_index]['True_Ring_Pos'][input_num].split('/')[0]):
+                            good += 1
+                        elif ground_truth != int(y[undersample_index]['True_Ring_Pos'][input_num].split('/')[0]):
+                            bad += 1
+                else:
+                    skip += 1
+        print("=============================")
+        print("|| Total Samples: " + blue + str(total) + reset)
+        print("|| Validated Samples: " + blue + str(good) + reset)
+        print("|| Bad Samples: " + red + str(bad) + reset)
+        print("|| Null Value: " + red + str(bad_val) + reset)
+        print("|| Skipped Samples: " + red + str(skip) + reset)
+        print("|| Key Error: " + red + str(key_error) + reset)
+        if (total / good * 100) == 100:
+            print("|| " + green + "100% data integrity!" + reset)
+        else:
+            print("|| " + red + "ERROR: " + str((total / good * 100)-100) + "% data corruption!" + reset)
+            exit(1)
+    print()
+
+
 def main():
     # Error Checking for command line args
     if len(argv) != 2:
@@ -872,6 +966,7 @@ def main():
     X, y = create_feature_set(data)
     del data
     collect()  # Garbage collector
+    validate_data_integrity(X, y, undersampled=False)
 
     #  Save data and labels to disk for future AI training
     with open("./Dataset_Files/X.pkl", "wb") as fp:
@@ -881,7 +976,7 @@ def main():
         pickle.dump(y, fp)
     #  Error checking; labels and data should be the same length
     assert len(X) == len(y)
-    print("./Dataset_Files/X.pkl, ./Dataset_Files/X.csv and ./Dataset_Files/y.pkl were written to disk!")
+    print(blue + "./Dataset_Files/X.pkl" + reset + ", " + blue + "./Dataset_Files/X.csv" + reset + ", and " + blue + "./Dataset_Files/y.pkl" + reset + " were written to disk!")
 
     ###################
     #  Undersampling  #
@@ -892,7 +987,7 @@ def main():
         y = pickle.load(fp)
 
     X_Undersampled, y_Undersampled = undersample(X, y)
-    del X
+    del X, y
     collect()  # Garbage collector
 
     with open("./Dataset_Files/X_Undersampled.pkl", "wb") as fp:
@@ -901,7 +996,9 @@ def main():
     with open("./Dataset_Files/y_Undersampled.pkl", "wb") as fp:
         pickle.dump(y_Undersampled, fp)
 
-    print("./Dataset_Files/X_Undersampled.pkl and ./Dataset_Files/y_Undersampled.pkl written to disk!\nFinished")
+    validate_data_integrity(X_Undersampled, y_Undersampled, undersampled=True)
+
+    print(blue + "./Dataset_Files/X_Undersampled.pkl" + reset + " and " + blue + "./Dataset_Files/y_Undersampled.pkl" + reset + " written to disk!\nFinished")
 
 
 if __name__ == '__main__':
