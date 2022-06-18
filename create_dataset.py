@@ -25,7 +25,7 @@ Date: 6/14/2022
 Author: ACK-J
 
 Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
-Warning: Run your own monerod process and block explorer
+Warning: Run your own monerod process and block explorer, it is very easy!
 To run your own block explorer:
     monerod --stagenet                        https://github.com/monero-project/monero
     xmrblocks --stagenet --enable-json-api    https://github.com/moneroexamples/onion-monero-blockchain-explorer
@@ -35,14 +35,18 @@ To run your own block explorer:
 ######################
 #  Global Variables  #
 ######################
-data = {}  # Key = tx hash, val = dict(transaction metadata)
-NUM_PROCESSES = cpu_count()  # Set the number of processes for multiprocessing
-NETWORK = "testnet"
+data = {}                               # Key = tx hash, val = dict(transaction metadata)
+NUM_PROCESSES = cpu_count()             # Set the number of processes for multiprocessing
+NETWORK = "testnet"                     # testnet, stagenet, mainnet
 API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
-API_URL = "http://127.0.0.1:8081/api"  # Local Monero Block Explorer
-NUM_RING_MEMBERS = 11  # DL models depend on a discrete number
+API_URL = "http://127.0.0.1:8081/api"   # Local Monero Block Explorer
+NUM_RING_MEMBERS = 11                   # DL models depend on a discrete number
 
-# Terminal Colors
+###################################################################################
+#     You shouldn't need to edit anything below this line unless things break     #
+###################################################################################
+
+# Terminal ANSI Color Codes
 red = '\033[31m'
 blue = "\033[0;34m"
 green = "\033[92m"
@@ -634,49 +638,57 @@ def undersample(X, y):
             flattened_true_spend.append(int(true_ring_pos.split("/")[0]))
     #  Count the amount of true labels at each position in the ring signature
     labels_distribution = Counter(flattened_true_spend)
-    num_total_rings = len(flattened_true_spend)
-    del flattened_true_spend
+    print("Total number of ring signatures in the dataset: " + blue + str(len(flattened_true_spend)) + reset)
+    del flattened_true_spend  # Free up RAM
 
     # Error checking
     try:
         #  Make sure that there are no classes with 0 labels
         assert len(labels_distribution) == NUM_RING_MEMBERS
     except AssertionError as e:
-        print(red + "Error: The dataset contains at least one class which has 0 labels!" + reset)
+        print(red + "Error: The dataset contains at least one class which has 0 labels! Undersampling not possible." + reset)
         exit(1)
 
     #  Find the smallest number of occurrences
     min_occurrences = labels_distribution.most_common()[len(labels_distribution)-1][1]
     print("Undersampling to " + blue + str(min_occurrences) + reset + " transactions per class. A total of " + blue + str(min_occurrences*NUM_RING_MEMBERS) + reset + " transactions.\n")
     #max_occurrences = labels_distribution.most_common(1)[0][1]
-    del labels_distribution
+    del labels_distribution  # Free up RAM
 
+    #  Get an enumerated list of tuples of the labels
     enumerated_y = list(enumerate(y))
-    del y
+    del y  # Free up RAM
     collect()  # Garbage collector
-    enumerated_X = []
-    num_splits = 10
+    enumerated_X = []  # List of pandas series objects
+    num_splits = 10  # To reduce ram, partition the dataset into this many sections
+
+    #  Check if the partitioned files do not exist on disk
     if not exists("./Dataset_Files/enumerated_X_1.pkl"):
-        for _ in tqdm(range(len(enumerated_y)), desc="Splicing Dataset Into Chunks", total=len(enumerated_y), colour='blue'):
-            enumerated_X.append(X.iloc[0])
-            X = X[1:]
+        #  Iterate over the number of rows in the dataset
+        for _ in tqdm(range(len(enumerated_y)), desc="Convert Dataset into List of Pandas Series", total=len(enumerated_y), colour='blue'):
+            enumerated_X.append(X.iloc[0])  # Grab the first record in the dataset -> returned as Series -> append to list
+            X = X[1:]  # Delete the first row from the dataset to reduce ram
         del X  # Remove the old dataset to save RAM
         collect()  # Garbage collector
+        #  Calculate the number of files to add to each partition
         split = len(enumerated_X)//num_splits
+        #  Iterate over the number of splits
         for i in range(1, num_splits+1):
+            #  Save the partitioned number of X values
             with open("./Dataset_Files/enumerated_X_" + str(i) + ".pkl", "wb") as fp:
-                if i == 1:
+                if i == 1:  # if it is the first partition
                     pickle.dump(enumerated_X[:split], fp)
-                elif i == num_splits:
+                elif i == num_splits:  # if it is the last partition
                     pickle.dump(enumerated_X[split * (i-1):], fp)
-                else:
+                else:  # if it is a middle partition
                     pickle.dump(enumerated_X[split * (i-1):split*i], fp)
+            #  Save the paritioned number of y values
             with open("./Dataset_Files/enumerated_y_" + str(i) + ".pkl", "wb") as fp:
-                if i == 1:
+                if i == 1:  # if it is the first partition
                     pickle.dump(enumerated_y[:split], fp)
-                elif i == num_splits:
+                elif i == num_splits:  # if it is the last partition
                     pickle.dump(enumerated_y[split * (i-1):], fp)
-                else:
+                else:  # if it is a middle partition
                     pickle.dump(enumerated_y[split * (i-1):split*i], fp)
             print(blue + "./Dataset_Files/enumerated_X_" + str(i) + ".pkl" + reset + " and " + blue + "./Dataset_Files/enumerated_y_" + str(i) + ".pkl" + reset + " written to disk!")
     else:
@@ -685,20 +697,23 @@ def undersample(X, y):
     print()
 
     with Manager() as manager:
-        undersampled_y = []
-        new_X = []
+        undersampled_y = []  # List of final labels
+        new_X = []  # Undersampled list of Pandas Series
         #  Create a dictionary for all 11 spots in a ring signature
         occurrences = manager.dict()
-        for i in range(NUM_RING_MEMBERS):
+        for i in range(NUM_RING_MEMBERS):  # Populate an entry for each possible label
             occurrences[i + 1] = 0
         file_idx = 1
+        #  While the number of samples added is less than the number of total needed undersampled values...
         while sum(list(occurrences.values())) < (min_occurrences * NUM_RING_MEMBERS) and file_idx <= num_splits:
-            print("Number of Undersampled Ring Signatures: " + blue + str(sum(list(occurrences.values()))) + reset)
+            if sum(list(occurrences.values())) != 0:
+                print("Number of Undersampled Ring Signatures: " + blue + str(sum(list(occurrences.values()))) + reset)
+            #  Open the next partitioned X and y files
             with open("./Dataset_Files/enumerated_X_" + str(file_idx) + ".pkl", "rb") as fp:
                 enumerated_X = pickle.load(fp)
             with open("./Dataset_Files/enumerated_y_" + str(file_idx) + ".pkl", "rb") as fp:
                 enumerated_y = pickle.load(fp)
-            assert len(enumerated_X) == len(enumerated_y)
+            assert len(enumerated_X) == len(enumerated_y)  # Error check
             file_idx += 1
             #  If processes is not set to 1 there will be a race condition where the data will get
             #  messed up and extra samples will be added. I have no idea how to fix this besides
@@ -712,10 +727,11 @@ def undersample(X, y):
                                                                     repeat(occurrences, len(enumerated_y))
                                                                     )
                                                       ),
-                                   desc="(Multiprocessing) Undersampling Dataset (Part " + str(file_idx-1) + ")",
+                                   desc="Undersampling Dataset (Part " + str(file_idx-1) + ")",
                                    total=len(enumerated_y),
                                    colour='blue'
                                    ):
+                    #  Unpack the results returned
                     subset_new_X = result[0]
                     subset_undersampled_y = result[1]
                     #  Add to the new X and y dataframes
@@ -726,8 +742,9 @@ def undersample(X, y):
             collect()
         # Combine the list of series together into a single DF
         undersampled_X = DataFrame(new_X)
-    del new_X
+    del new_X  # Free up RAM
     collect()  # Garbage collector
+    #  Fill Nan values to be -1 and reset indexing
     undersampled_X.fillna(-1, inplace=True)
     undersampled_X.reset_index(drop=True, inplace=True)
 
@@ -737,10 +754,11 @@ def undersample(X, y):
         try:
             assert class_occurrences == min_occurrences
         except AssertionError as e:
+            print("A class had a number of samples which did not equal the undersampled number of occurrences.")
             print(Counter(undersampled_y).items())
-            exit()
+            exit(1)
 
-    # Shuffle the data one last time
+    # Shuffle the data one last time and reset the indexing
     undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
     undersampled_X.reset_index(drop=True, inplace=True)
     return undersampled_X, undersampled_y
@@ -755,7 +773,7 @@ def write_dict_to_csv(data_dict):
     #  Keep track of all column names for the CSV
     column_names = []
     with open("./Dataset_Files/dataset.csv", "a") as fp:
-        fp.write("HEADERS"+"\n")  # Keep a placeholder for the column names
+        fp.write("HEADERS"+"\n")  # Keep a temp placeholder for the column names
         first_tx = True
         #  Iterate over each tx hash
         for tx_hash in tqdm(iterable=data_dict.keys(), total=len(data_dict.keys()), colour='blue', desc="Writing Dataset to Disk as a CSV"):
@@ -816,6 +834,7 @@ def validate_data_integrity(X, y, undersampled=False):
         good = 0
         bad_val = len(X_Undersampled.index[X_Undersampled['Input.Median_Ring_Time'] == -1])
         skip = 0
+        total = 0
         key_error = 0
         #  Make sure there are no duplicate rows
         assert len(X_Undersampled[X_Undersampled.duplicated()]) == 0
@@ -832,19 +851,16 @@ def validate_data_integrity(X, y, undersampled=False):
                 #  Check if there were occurrences
                 if find_undersampled_mean_idx and find_undersampled_med_idx:
                     if len(find_undersampled_mean_idx) == 1 and len(find_undersampled_med_idx) == 1 and find_undersampled_mean_idx[0] == find_undersampled_med_idx[0]:
+                        total += 1
                         undersample_index = find_undersampled_mean_idx[0]
-                        try:
-                            ground_truth = int(val['Inputs'][input_num]['Ring_no/Ring_size'].split("/")[0])
-                        except KeyError as e:
-                            key_error += 1
-                            continue
+                        ground_truth = int(val['Inputs'][input_num]['Ring_no/Ring_size'].split("/")[0])
                         if ground_truth == y_Undersampled[undersample_index]:
                             good += 1
                         else:
                             bad += 1
                             print(input_num)
-                    else:
-                        skip += 1
+                else:
+                    skip += 1
         print("=============================")
         print("|| Total Samples: " + blue + str(len(X_Undersampled)) + reset)
         print("|| Validated Samples: " + blue + str(good) + reset)
@@ -852,7 +868,7 @@ def validate_data_integrity(X, y, undersampled=False):
         print("|| Null Value: " + red + str(bad_val) + reset)
         print("|| Skipped Samples: " + red + str(skip) + reset)
         print("|| Key Error: " + red + str(key_error) + reset)
-        if (len(X_Undersampled) / good * 100) == 100:
+        if (total / good * 100) == 100:
             print("|| " + green + "100% data integrity!" + reset)
         else:
             print("|| " + red + "ERROR: " + str((len(X_Undersampled)/good*100)-100) + "% data corruption!" + reset)
@@ -879,11 +895,7 @@ def validate_data_integrity(X, y, undersampled=False):
                     if len(find_undersampled_mean_idx) == 1 and len(find_undersampled_med_idx) == 1 and find_undersampled_mean_idx[0] == find_undersampled_med_idx[0]:
                         total += 1
                         undersample_index = find_undersampled_mean_idx[0]
-                        try:
-                            ground_truth = int(val['Inputs'][input_num]['Ring_no/Ring_size'].split("/")[0])
-                        except KeyError as e:
-                            key_error += 1
-                            continue
+                        ground_truth = int(val['Inputs'][input_num]['Ring_no/Ring_size'].split("/")[0])
                         if input_num >= len(y[undersample_index]['True_Ring_Pos']):
                             bad += 1
                             print(input_num)
@@ -906,6 +918,7 @@ def validate_data_integrity(X, y, undersampled=False):
             print("|| " + red + "ERROR: " + str((total / good * 100)-100) + "% data corruption!" + reset)
             exit(1)
     print()
+    del original_data  # Free up RAM
 
 
 def main():
@@ -971,7 +984,7 @@ def main():
     #  Save data and labels to disk for future AI training
     with open("./Dataset_Files/X.pkl", "wb") as fp:
         pickle.dump(X, fp)
-        X.to_csv('./Dataset_Files/X.csv', index=False, header=True)
+    X.to_csv('./Dataset_Files/X.csv', index=False, header=True)
     with open("./Dataset_Files/y.pkl", "wb") as fp:
         pickle.dump(y, fp)
     #  Error checking; labels and data should be the same length

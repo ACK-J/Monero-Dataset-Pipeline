@@ -1,25 +1,30 @@
 #!/bin/bash
 
-# Requirements: jq, parallel and expect
+# Requirements: jq, parallel, xmr2csv, expect, all monero binaries
 # Before running this script first compile and run
 #               "./monerod --testnet"       https://github.com/monero-project/monero#compiling-monero-from-source
-# Before running this script first compile xmr2csv from https://github.com/moneroexamples/transactions-export
+# Before running this script first compile xmr2csv
+#               also add it to your path    https://github.com/moneroexamples/transactions-export
 # Usage: ./collect.sh
+# Usage: This script expects to be placed into a folder that contains wallets. Each wallet should
+#        have a Test-Wallet1, Test-Wallet1.keys, and Test-Wallet1.address.txt file.
 
 
 # Global variables
-REMOTE_NODE="127.0.0.1"   # testnet.community.rino.io
-NETWORK="testnet"  # Case-sensitive (make all lowercase) (Options: "testnet" or "stagenet")
+NODE_ADDRESS="127.0.0.1"    # testnet.community.rino.io | stagenet.community.rino.io | node.community.rino.io
+NETWORK="testnet"           # Case-sensitive (make all lowercase) (Options: "testnet", "stagenet", or "mainnet")
 num_processors=$(nproc --all)
 
 # TODO LOOK INTO ADDING --ALL-OUTPUTS AND --ALL-KEY-IMAGES
+# TODO Pass in a directory
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
 #############################################################################
 
-if [[ "$NETWORK" == "stagenet" ]];then REMOTE_RPC_PORT="38081"; else REMOTE_RPC_PORT="28081"; fi
-if [[ "$NETWORK" == "stagenet" ]];then LOCAL_RPC_PORT="38088"; else LOCAL_RPC_PORT="28088"; fi
+if [[ "$NETWORK" == "stagenet" ]];then NODE_RPC_PORT="38081"; LOCAL_RPC_PORT="38088"; fi
+if [[ "$NETWORK" == "testnet"  ]];then NODE_RPC_PORT="28081"; LOCAL_RPC_PORT="28088"; fi
+if [[ "$NETWORK" == "mainnet"  ]];then NODE_RPC_PORT="18081"; LOCAL_RPC_PORT="18088"; fi
 
 parent_dir=$(pwd)
 
@@ -35,7 +40,7 @@ if [ -f "${parent_dir}/xmr2csv_commands.txt" ];then
   done
 fi
 
-while read dir; do  # Read in all directories that contain a .txt file in the current directory
+while read dir; do  # Read in all directories that contain a .keys file in the current directory
   cd "$dir" || exit
   echo "$dir"
   working_dir=$(pwd)
@@ -45,11 +50,12 @@ while read dir; do  # Read in all directories that contain a .txt file in the cu
     #  Gets the address of the current wallet
     walletAddr=$(cat "$walletAddrFile")
 
-    # Create script to export the current wallet transactions using the monero-wallet-cli
-    cat >./Export_Wallet.exp <<EOL
+    if [ "$NETWORK" == "mainnet" ];then
+      # Create script to export the current wallet transactions using the monero-wallet-cli
+      cat >./Export_Wallet.exp <<EOL
 #!/usr/bin/expect -f
 set timeout -1
-spawn monero-wallet-cli --$NETWORK --wallet ./$walletName --daemon-address $REMOTE_NODE:$REMOTE_RPC_PORT --log-file /dev/null --trusted-daemon
+spawn monero-wallet-cli --wallet ./$walletName --daemon-address $NODE_ADDRESS:$NODE_RPC_PORT --log-file /dev/null --trusted-daemon
 match_max 100000
 expect "Wallet password: "
 send -- "\r"
@@ -62,6 +68,26 @@ send -- "exit\r"
 
 expect eof
 EOL
+    else
+      # Create script to export the current wallet transactions using the monero-wallet-cli
+      cat >./Export_Wallet.exp <<EOL
+#!/usr/bin/expect -f
+set timeout -1
+spawn monero-wallet-cli --$NETWORK --wallet ./$walletName --daemon-address $NODE_ADDRESS:$NODE_RPC_PORT --log-file /dev/null --trusted-daemon
+match_max 100000
+expect "Wallet password: "
+send -- "\r"
+
+expect "wallet*]:*"
+send -- "export_transfers out output=cli_export_$walletAddr.csv\r"
+
+expect "wallet*]:*"
+send -- "exit\r"
+
+expect eof
+EOL
+    fi
+
 
     #  Make the script executable and run it
     chmod 777 ./Export_Wallet.exp && ./Export_Wallet.exp
@@ -82,7 +108,11 @@ EOL
 
       #  Start a new monero-wallet-rpc process for the current wallet
       echo -en '\033[34mStarting a new monero-wallet-rpc process... \033[0m';echo;
-      monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT --wallet-file "$walletName" --password '' --$NETWORK --disable-rpc-login &
+      if [ "$NETWORK" == "mainnet" ];then
+        monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT --wallet-file "$walletName" --password '' --disable-rpc-login &
+      else
+        monero-wallet-rpc --rpc-bind-port $LOCAL_RPC_PORT --wallet-file "$walletName" --password '' --$NETWORK --disable-rpc-login &
+      fi
 
       echo -en '\033[34mWaiting... \033[0m';echo;
       sleep 2 # Give the RPC server time to spin up
@@ -109,11 +139,22 @@ EOL
       echo
       #  Save the epoch time of when the scan started since Decoy_Output_Ring_Member_Frequency will depend on it
       date +%s > xmr2csv_start_time_"$walletAddr".csv
-      #  Make xmr2csv command using all the collected values and save the command to a text file to be run in parallel later on
-      echo xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --"$NETWORK" --start-height "$min_block_height" --ring-members --out-csv-file "$working_dir"/xmr_report_"$walletAddr".csv --out-csv-file2 "$working_dir"/xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 "$working_dir"/xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 "$working_dir"/xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 "$working_dir"/xmr_report_outgoing_txs_"$walletAddr".csv >> "$parent_dir"/xmr2csv_commands.txt
+      if [ "$NETWORK" == "mainnet" ];then
+        #  Make xmr2csv command using all the collected values and save the command to a text file to be run in parallel later on
+        echo xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --start-height "$min_block_height" --ring-members --out-csv-file "$working_dir"/xmr_report_"$walletAddr".csv --out-csv-file2 "$working_dir"/xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 "$working_dir"/xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 "$working_dir"/xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 "$working_dir"/xmr_report_outgoing_txs_"$walletAddr".csv >> "$parent_dir"/xmr2csv_commands.txt
+      else
+        #  Make xmr2csv command using all the collected values and save the command to a text file to be run in parallel later on
+        echo xmr2csv --address "$walletAddr" --viewkey "$view_key" --spendkey "$spend_key" --"$NETWORK" --start-height "$min_block_height" --ring-members --out-csv-file "$working_dir"/xmr_report_"$walletAddr".csv --out-csv-file2 "$working_dir"/xmr_report_ring_members_"$walletAddr".csv --out-csv-file3 "$working_dir"/xmr_report_ring_members_freq_"$walletAddr".csv --out-csv-file4 "$working_dir"/xmr_report_key_images_outputs_"$walletAddr".csv --out-csv-file5 "$working_dir"/xmr_report_outgoing_txs_"$walletAddr".csv >> "$parent_dir"/xmr2csv_commands.txt
+      fi
+
       #  Echo the commands to stdout
       echo -en "\033[34mXMR2CSV command constructed and saved to ${parent_dir}/xmr2csv_commands.txt\033[0m";echo;
-      echo -en "\033[34mxmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --$NETWORK --start-height $min_block_height --ring-members --out-csv-file $working_dir/xmr_report_$walletAddr.csv --out-csv-file2 $working_dir/xmr_report_ring_members_$walletAddr.csv --out-csv-file3 $working_dir/xmr_report_ring_members_freq_$walletAddr.csv --out-csv-file4 $working_dir/xmr_report_key_images_outputs_$walletAddr.csv --out-csv-file5 $working_dir/xmr_report_outgoing_txs_$walletAddr.csv\033[0m";echo;
+      if [ "$NETWORK" == "mainnet" ];then
+        echo -en "\033[34mxmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --start-height $min_block_height --ring-members --out-csv-file $working_dir/xmr_report_$walletAddr.csv --out-csv-file2 $working_dir/xmr_report_ring_members_$walletAddr.csv --out-csv-file3 $working_dir/xmr_report_ring_members_freq_$walletAddr.csv --out-csv-file4 $working_dir/xmr_report_key_images_outputs_$walletAddr.csv --out-csv-file5 $working_dir/xmr_report_outgoing_txs_$walletAddr.csv\033[0m";echo;
+      else
+        echo -en "\033[34mxmr2csv --address $walletAddr --viewkey $view_key --spendkey $spend_key --$NETWORK --start-height $min_block_height --ring-members --out-csv-file $working_dir/xmr_report_$walletAddr.csv --out-csv-file2 $working_dir/xmr_report_ring_members_$walletAddr.csv --out-csv-file3 $working_dir/xmr_report_ring_members_freq_$walletAddr.csv --out-csv-file4 $working_dir/xmr_report_key_images_outputs_$walletAddr.csv --out-csv-file5 $working_dir/xmr_report_outgoing_txs_$walletAddr.csv\033[0m";echo;
+      fi
+
     fi # End error check
 
   done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
@@ -123,5 +164,6 @@ done < <(find . -mindepth 2 -type f -name '*.keys' | sed -r 's|/[^/]+$||' | sort
 
 echo;echo;echo;
 echo -en '\033[34mStarting multiprocessing of xmr2csv exports... \033[0m';echo;
-# https://adamtheautomator.com/how-to-speed-up-bash-scripts-with-multithreading-and-gnu-parallel/
+#  https://adamtheautomator.com/how-to-speed-up-bash-scripts-with-multithreading-and-gnu-parallel/
+#  Opne the file with all the commands and start the multiprocessing
 cat "$parent_dir"/xmr2csv_commands.txt | parallel --bar --jobs "$num_processors" {}
