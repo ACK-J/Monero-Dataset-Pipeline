@@ -9,4 +9,3 @@ tqdm>=4.62.3
 xgboost
 graphviz
 colorama
-pyarrow

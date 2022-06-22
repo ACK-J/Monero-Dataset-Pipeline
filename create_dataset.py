@@ -6,7 +6,7 @@ from tqdm import tqdm
 from gc import collect
 from requests import get
 from os.path import exists
-from itertools import repeat
+from numpy import intersect1d
 from statistics import median
 from datetime import datetime
 from collections import Counter
@@ -98,37 +98,37 @@ def enrich_data(tx_dict_item):
     transaction_entry['Block_Size'] = block_response["size"]
     transaction_entry['Time_Since_Last_Block'] = int((datetime.fromtimestamp(int(block_response["timestamp"])) - datetime.fromtimestamp(int(previous_block_response["timestamp"]))).total_seconds())
 
-    #  Output info
-    for Decoy in transaction_entry['Outputs']['Decoys_On_Chain']:
-        #  Add Temporal Features for the decoy ( This takes up a ton of time )
-        #  Retrieve the transaction information about the decoy ring signatures
-        decoy_tx_response = get_xmr_tx(str(Decoy['Tx_Hash']))
-        #  Iterate through each input
-        for decoy_input in decoy_tx_response['inputs']:
-            #  Create an entry for the temporal data
-            Decoy['Time_Deltas_Between_Ring_Members'] = {}
-            #  Make sure there is at least 1 mixin
-            if len(decoy_input['mixins']) != 0:
-                #  A place to store the block times of each ring member
-                Ring_Member_Times = []
-                #  Iterate through each mixin, add it to the list and calculate the time deltas
-                for member_idx, each_member in enumerate(decoy_input['mixins']):
-                    Ring_Member_Times.append(get_xmr_block(str(each_member['block_no']))['timestamp'])
-                    #  If the list has at least 2 items
-                    if len(Ring_Member_Times) > 1:
-                        time_delta = int((datetime.fromtimestamp(Ring_Member_Times[member_idx]) - datetime.fromtimestamp(Ring_Member_Times[member_idx - 1])).total_seconds())
-                        Decoy['Time_Deltas_Between_Ring_Members'][str(member_idx - 1) + '_' + str(member_idx)] = time_delta
-                        # Add temporal features
-                        #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
-                        Decoy['Time_Deltas_Between_Ring_Members']['Total_Decoy_Time_Span'] = int((datetime.fromtimestamp(Ring_Member_Times[len(Ring_Member_Times) - 1]) - datetime.fromtimestamp(Ring_Member_Times[0])).total_seconds())
-                        #  Calculate the time between the newest ring in the signature to the block time of the transaction
-                        Decoy['Time_Deltas_Between_Ring_Members']['Time_Delta_From_Newest_Ring_To_Block'] = int((datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch']) - datetime.fromtimestamp(Ring_Member_Times[len(Ring_Member_Times) - 1])).total_seconds())
-                        #  Calculate the time between the oldest ring in the signature to the block time of the transaction
-                        Decoy['Time_Deltas_Between_Ring_Members']['Time_Delta_From_Oldest_Ring_To_Block'] = int((datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch']) - datetime.fromtimestamp(Ring_Member_Times[0])).total_seconds())
-                        #  Calculate the mean of the ring time
-                        Decoy['Time_Deltas_Between_Ring_Members']['Mean_Ring_Time'] = int(sum(Ring_Member_Times) / len(Ring_Member_Times)) - Ring_Member_Times[0]
-                        #  Calculate the median of the ring time
-                        Decoy['Time_Deltas_Between_Ring_Members']['Median_Ring_Time'] = int(median(Ring_Member_Times)) - Ring_Member_Times[0]
+    #  Output info TODO
+    # for Decoy in transaction_entry['Outputs']['Decoys_On_Chain']:
+    #     #  Add Temporal Features for the decoy ( This takes up a ton of time )
+    #     #  Retrieve the transaction information about the decoy ring signatures
+    #     decoy_tx_response = get_xmr_tx(str(Decoy['Tx_Hash']))
+    #     #  Iterate through each input
+    #     for decoy_input in decoy_tx_response['inputs']:
+    #         #  Create an entry for the temporal data
+    #         Decoy['Time_Deltas_Between_Ring_Members'] = {}
+    #         #  Make sure there is at least 1 mixin
+    #         if len(decoy_input['mixins']) != 0:
+    #             #  A place to store the block times of each ring member
+    #             Ring_Member_Times = []
+    #             #  Iterate through each mixin, add it to the list and calculate the time deltas
+    #             for member_idx, each_member in enumerate(decoy_input['mixins']):
+    #                 Ring_Member_Times.append(get_xmr_block(str(each_member['block_no']))['timestamp'])
+    #                 #  If the list has at least 2 items
+    #                 if len(Ring_Member_Times) > 1:
+    #                     time_delta = int((datetime.fromtimestamp(Ring_Member_Times[member_idx]) - datetime.fromtimestamp(Ring_Member_Times[member_idx - 1])).total_seconds())
+    #                     Decoy['Time_Deltas_Between_Ring_Members'][str(member_idx - 1) + '_' + str(member_idx)] = time_delta
+    #                     # Add temporal features
+    #                     #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
+    #                     Decoy['Time_Deltas_Between_Ring_Members']['Total_Decoy_Time_Span'] = int((datetime.fromtimestamp(Ring_Member_Times[len(Ring_Member_Times) - 1]) - datetime.fromtimestamp(Ring_Member_Times[0])).total_seconds())
+    #                     #  Calculate the time between the newest ring in the signature to the block time of the transaction
+    #                     Decoy['Time_Deltas_Between_Ring_Members']['Time_Delta_From_Newest_Ring_To_Block'] = int((datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch']) - datetime.fromtimestamp(Ring_Member_Times[len(Ring_Member_Times) - 1])).total_seconds())
+    #                     #  Calculate the time between the oldest ring in the signature to the block time of the transaction
+    #                     Decoy['Time_Deltas_Between_Ring_Members']['Time_Delta_From_Oldest_Ring_To_Block'] = int((datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch']) - datetime.fromtimestamp(Ring_Member_Times[0])).total_seconds())
+    #                     #  Calculate the mean of the ring time
+    #                     Decoy['Time_Deltas_Between_Ring_Members']['Mean_Ring_Time'] = int(sum(Ring_Member_Times) / len(Ring_Member_Times)) - Ring_Member_Times[0]
+    #                     #  Calculate the median of the ring time
+    #                     Decoy['Time_Deltas_Between_Ring_Members']['Median_Ring_Time'] = int(median(Ring_Member_Times)) - Ring_Member_Times[0]
 
     #  Add Input Information
     for input_idx, input in enumerate(tx_response['inputs']):
@@ -175,7 +175,7 @@ def enrich_data(tx_dict_item):
             #  Get the length of the tx_extra from each mixin transaction
             transaction_entry['Inputs'][input_idx]['Previous_Tx_TxExtra_Len'][str(ring_mem_num)] = len(prev_tx['extra'])
 
-            # #  Iterate through each block between where the ring member was created and now
+            # #  Iterate through each block between where the ring member was created and now  TODO
             # for block in range((ring['block_no']+1), transaction_entry['Block_Number']):
             #     #  Get the data for the entire block
             #     temp_block = get_xmr_block(block_cache, str(block))
@@ -235,28 +235,28 @@ def enrich_data(tx_dict_item):
     #  Delete the temporary dict() holding the true ring positions
     del transaction_entry['Input_True_Rings']
 
-    #  Temporal features for decoys on chain
-    transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain'] = {}
-    if len(transaction_entry['Outputs']['Decoys_On_Chain']) != 0:
-        #  A place to store the block times of each ring member
-        decoys_on_chain_times = []
-        for member_idx, each_member in enumerate(transaction_entry['Outputs']['Decoys_On_Chain']):
-            decoys_on_chain_times.append(get_xmr_block(str(each_member['Block_Number']))['timestamp'])
-            #  If the list has at least 2 items
-            if len(decoys_on_chain_times) > 1:
-                time_delta = int((datetime.fromtimestamp(decoys_on_chain_times[member_idx]) - datetime.fromtimestamp(decoys_on_chain_times[member_idx - 1])).total_seconds())
-                transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain'][str(member_idx-1) + '_' + str(member_idx)] = time_delta
-                # Add temporal features
-                #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
-                transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Total_Decoy_Time_Span'] = int((datetime.fromtimestamp(decoys_on_chain_times[len(decoys_on_chain_times)-1]) - datetime.fromtimestamp(decoys_on_chain_times[0])).total_seconds())
-                #  Calculate the time between the newest ring in the signature to the block time of the transaction
-                transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Time_Delta_From_Newest_Decoy_To_Block'] = int((datetime.fromtimestamp(decoys_on_chain_times[len(decoys_on_chain_times)-1]) - datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch'])).total_seconds())
-                #  Calculate the time between the oldest ring in the signature to the block time of the transaction
-                transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Time_Delta_From_Oldest_Decoy_To_Block'] = int((datetime.fromtimestamp(decoys_on_chain_times[0]) - datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch'])).total_seconds())
-                #  Calculate the mean of the ring time
-                transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Mean_Decoy_Time'] = sum(decoys_on_chain_times) / len(decoys_on_chain_times) - decoys_on_chain_times[0]
-                #  Calculate the median of the ring time
-                transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Median_Decoy_Time'] = int(median(decoys_on_chain_times)) - decoys_on_chain_times[0]
+    # #  Temporal features for decoys on chain TODO
+    # transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain'] = {}
+    # if len(transaction_entry['Outputs']['Decoys_On_Chain']) != 0:
+    #     #  A place to store the block times of each ring member
+    #     decoys_on_chain_times = []
+    #     for member_idx, each_member in enumerate(transaction_entry['Outputs']['Decoys_On_Chain']):
+    #         decoys_on_chain_times.append(get_xmr_block(str(each_member['Block_Number']))['timestamp'])
+    #         #  If the list has at least 2 items
+    #         if len(decoys_on_chain_times) > 1:
+    #             time_delta = int((datetime.fromtimestamp(decoys_on_chain_times[member_idx]) - datetime.fromtimestamp(decoys_on_chain_times[member_idx - 1])).total_seconds())
+    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain'][str(member_idx-1) + '_' + str(member_idx)] = time_delta
+    #             # Add temporal features
+    #             #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
+    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Total_Decoy_Time_Span'] = int((datetime.fromtimestamp(decoys_on_chain_times[len(decoys_on_chain_times)-1]) - datetime.fromtimestamp(decoys_on_chain_times[0])).total_seconds())
+    #             #  Calculate the time between the newest ring in the signature to the block time of the transaction
+    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Time_Delta_From_Newest_Decoy_To_Block'] = int((datetime.fromtimestamp(decoys_on_chain_times[len(decoys_on_chain_times)-1]) - datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch'])).total_seconds())
+    #             #  Calculate the time between the oldest ring in the signature to the block time of the transaction
+    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Time_Delta_From_Oldest_Decoy_To_Block'] = int((datetime.fromtimestamp(decoys_on_chain_times[0]) - datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch'])).total_seconds())
+    #             #  Calculate the mean of the ring time
+    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Mean_Decoy_Time'] = sum(decoys_on_chain_times) / len(decoys_on_chain_times) - decoys_on_chain_times[0]
+    #             #  Calculate the median of the ring time
+    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Median_Decoy_Time'] = int(median(decoys_on_chain_times)) - decoys_on_chain_times[0]
     return tx_hash, transaction_entry
 
 
@@ -349,6 +349,10 @@ def combine_files(Wallet_info):
                                 for line2 in fp2:
                                     ring_members_csv_values = line2.split(",")
                                     Ring_Member = {}
+                                    #  Only collect 10 decoys found on chain because it gets too resource intensive when
+                                    #  calculating all the temporal features for every decoy's ring signatures
+                                    if len(wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 0:  # TODO Debugging Change back
+                                        break
                                     #  Iterate through each output from the transaction
                                     for tx_output in wallet_tx_data[tx_hash]['Outputs']['Output_Data']:
                                         #  Check if the ring members public key matches an output in this transaction
@@ -379,10 +383,6 @@ def combine_files(Wallet_info):
                                                         #  Add the amount of times it has been seen on chain
                                                         Ring_Member['Ring_Member_Freq'] = int(ring_member_freq_csv_values[1].strip())
                                             wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain'].append(Ring_Member)
-                                    #  Only collect 10 decoys found on chain because it gets too resource intensive when
-                                    #  calculating all the temporal features for every decoy's ring signatures
-                                    if len(wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 10:
-                                        break
 
                 #  CSV HEADERS -> "Timestamp, Block_no, Tx_hash, Output_pub_key, Key_image, Ring_no/Ring_size"
                 #                      0          1        2            3            4              5
@@ -466,7 +466,7 @@ def discover_wallet_directories(dir_to_search):
                         total_txs += 1
                     else:
                         num_bad_txs += 1
-    print("There were " + str(num_bad_txs) + " bad transactions that were deleted out of a total " + str(total_txs) + " transactions!")
+    print("There were " + str(num_bad_txs) + " bad transactions that were deleted out of a total " + str(total_txs+num_bad_txs) + " transactions!")
     print("The dataset now includes " + str(len(data)) + " transactions.")
 
 
@@ -580,24 +580,17 @@ def create_feature_set(database):
     #feature_set = concat(Valid_Transactions, axis=0).fillna(-1)
 
     #  Shuffle the data
-    feature_set_df, labels = shuffle(feature_set_df, labels)
+    feature_set_df, labels = shuffle(feature_set_df, labels, random_state=101)
     #  Reset the indexing after the shuffles
     feature_set_df.reset_index(drop=True, inplace=True)
     return feature_set_df, labels
 
 
-def undersample_processing(y, series, min_occurrences, occurrences):
-    """
-
-    :param y:
-    :param temp_series:
-    :param min_occurrences:
-    :param occurrences:
-    :return:
-    """
-    undersampled_y = []
+def undersample_processing(y, series, min_occurrences, occurrences, predicting):
+    new_y = []
     new_X = []
     y_idx, ring_array = y
+
     #  For each array of ring members iterate over each index
     for ring_array_idx in range(len(ring_array["True_Ring_Pos"])):
         #  Make a copy of the data since we need to delete portions of it
@@ -606,7 +599,7 @@ def undersample_processing(y, series, min_occurrences, occurrences):
         ring_pos = int(ring_array["True_Ring_Pos"][ring_array_idx].split("/")[0])
         total_rings = int(ring_array["True_Ring_Pos"][ring_array_idx].split("/")[1])
         #  Check to see if we hit the maximum number of labels for this position and that the number of ring members is what we expect.
-        if occurrences[ring_pos] < min_occurrences and total_rings == NUM_RING_MEMBERS:
+        if predicting or (occurrences[ring_pos] < min_occurrences and total_rings == NUM_RING_MEMBERS):
             occurrences[ring_pos] = occurrences[ring_pos] + 1
             #  https://stackoverflow.com/questions/57392878/how-to-speed-up-pandas-drop-method
             #  Check if the column name has data relating to irrelevant ring signatures and Delete the columns
@@ -616,15 +609,12 @@ def undersample_processing(y, series, min_occurrences, occurrences):
             temp_series.rename({column: column.replace("Inputs." + str(ring_array_idx) + ".", "Input.") for column in temp_series.index if "Inputs." + str(ring_array_idx) + "." in column}, inplace=True)
             #  Add to the new X and y dataframes
             new_X.append(temp_series)
-            undersampled_y.append(ring_pos)
-    return new_X, undersampled_y
+            new_y.append(ring_pos)
+
+    return new_X, new_y
 
 
-def undersample_processing_wrapper(all):
-    return undersample_processing(*all)
-
-
-def undersample(X, y):
+def undersample(X, y, predicting):
     """
 
     :param X:
@@ -639,7 +629,7 @@ def undersample(X, y):
     #  Count the amount of true labels at each position in the ring signature
     labels_distribution = Counter(flattened_true_spend)
     print("Total number of ring signatures in the dataset: " + blue + str(len(flattened_true_spend)) + reset)
-    del flattened_true_spend  # Free up RAM
+    del flattened_true_spend, true_ring_pos # Free up RAM
 
     # Error checking
     try:
@@ -657,13 +647,12 @@ def undersample(X, y):
 
     #  Get an enumerated list of tuples of the labels
     enumerated_y = list(enumerate(y))
-    del y  # Free up RAM
     collect()  # Garbage collector
     enumerated_X = []  # List of pandas series objects
     num_splits = 10  # To reduce ram, partition the dataset into this many sections
 
     #  Check if the partitioned files do not exist on disk
-    if not exists("./Dataset_Files/enumerated_X_1.pkl"):
+    if not exists("./Dataset_Files/partitioned_X_1.pkl"):
         #  Iterate over the number of rows in the dataset
         for _ in tqdm(range(len(enumerated_y)), desc="Convert Dataset into List of Pandas Series", total=len(enumerated_y), colour='blue'):
             enumerated_X.append(X.iloc[0])  # Grab the first record in the dataset -> returned as Series -> append to list
@@ -675,7 +664,7 @@ def undersample(X, y):
         #  Iterate over the number of splits
         for i in range(1, num_splits+1):
             #  Save the partitioned number of X values
-            with open("./Dataset_Files/enumerated_X_" + str(i) + ".pkl", "wb") as fp:
+            with open("./Dataset_Files/partitioned_X_" + str(i) + ".pkl", "wb") as fp:
                 if i == 1:  # if it is the first partition
                     pickle.dump(enumerated_X[:split], fp)
                 elif i == num_splits:  # if it is the last partition
@@ -683,83 +672,80 @@ def undersample(X, y):
                 else:  # if it is a middle partition
                     pickle.dump(enumerated_X[split * (i-1):split*i], fp)
             #  Save the paritioned number of y values
-            with open("./Dataset_Files/enumerated_y_" + str(i) + ".pkl", "wb") as fp:
+            with open("./Dataset_Files/partitioned_y_" + str(i) + ".pkl", "wb") as fp:
                 if i == 1:  # if it is the first partition
                     pickle.dump(enumerated_y[:split], fp)
                 elif i == num_splits:  # if it is the last partition
                     pickle.dump(enumerated_y[split * (i-1):], fp)
                 else:  # if it is a middle partition
                     pickle.dump(enumerated_y[split * (i-1):split*i], fp)
-            print(blue + "./Dataset_Files/enumerated_X_" + str(i) + ".pkl" + reset + " and " + blue + "./Dataset_Files/enumerated_y_" + str(i) + ".pkl" + reset + " written to disk!")
+            print(blue + "./Dataset_Files/partitioned_X_" + str(i) + ".pkl" + reset + " and " + blue + "./Dataset_Files/partitioned_y_" + str(i) + ".pkl" + reset + " written to disk!")
     else:
         del X  # Remove the old dataset to save RAM
         collect()  # Garbage collector
     print()
 
-    with Manager() as manager:
-        undersampled_y = []  # List of final labels
-        new_X = []  # Undersampled list of Pandas Series
-        #  Create a dictionary for all 11 spots in a ring signature
-        occurrences = manager.dict()
-        for i in range(NUM_RING_MEMBERS):  # Populate an entry for each possible label
-            occurrences[i + 1] = 0
-        file_idx = 1
-        #  While the number of samples added is less than the number of total needed undersampled values...
-        while sum(list(occurrences.values())) < (min_occurrences * NUM_RING_MEMBERS) and file_idx <= num_splits:
-            if sum(list(occurrences.values())) != 0:
-                print("Number of Undersampled Ring Signatures: " + blue + str(sum(list(occurrences.values()))) + reset)
-            #  Open the next partitioned X and y files
-            with open("./Dataset_Files/enumerated_X_" + str(file_idx) + ".pkl", "rb") as fp:
-                enumerated_X = pickle.load(fp)
-            with open("./Dataset_Files/enumerated_y_" + str(file_idx) + ".pkl", "rb") as fp:
-                enumerated_y = pickle.load(fp)
-            assert len(enumerated_X) == len(enumerated_y)  # Error check
-            file_idx += 1
-            #  If processes is not set to 1 there will be a race condition where the data will get
-            #  messed up and extra samples will be added. I have no idea how to fix this besides
-            #  getting rid of the multiprocessing.
-            with manager.Pool(processes=1) as pool:
-                for result in tqdm(pool.imap_unordered(func=undersample_processing_wrapper,
-                                                       iterable=zip(
-                                                                    enumerated_y,
-                                                                    enumerated_X,
-                                                                    repeat(min_occurrences, len(enumerated_y)),
-                                                                    repeat(occurrences, len(enumerated_y))
-                                                                    )
-                                                      ),
-                                   desc="Undersampling Dataset (Part " + str(file_idx-1) + ")",
-                                   total=len(enumerated_y),
-                                   colour='blue'
-                                   ):
-                    #  Unpack the results returned
-                    subset_new_X = result[0]
-                    subset_undersampled_y = result[1]
-                    #  Add to the new X and y dataframes
-                    new_X = new_X + subset_new_X
-                    undersampled_y = undersampled_y + subset_undersampled_y
-            del enumerated_X
-            del enumerated_y
-            collect()
-        # Combine the list of series together into a single DF
-        undersampled_X = DataFrame(new_X)
-    del new_X  # Free up RAM
+    new_y = []  # List of final labels
+    new_X = []  # Undersampled list of Pandas Series
+    #  Create a dictionary for all 11 spots in a ring signature
+    occurrences = {}
+    for i in range(NUM_RING_MEMBERS):  # Populate an entry for each possible label
+        occurrences[i + 1] = 0
+    file_idx = 1
+    tx_count = 0
+    #  While the number of samples added is less than the number of total needed undersampled values...
+    while (predicting and file_idx <= num_splits) or (sum(list(occurrences.values())) < (min_occurrences * NUM_RING_MEMBERS) and file_idx <= num_splits):
+        #  Open the next partitioned X and y files
+        with open("./Dataset_Files/partitioned_X_" + str(file_idx) + ".pkl", "rb") as fp:
+            enumerated_X = pickle.load(fp)
+        with open("./Dataset_Files/partitioned_y_" + str(file_idx) + ".pkl", "rb") as fp:
+            enumerated_y = pickle.load(fp)
+        assert len(enumerated_X) == len(enumerated_y)  # Error check
+        file_idx += 1
+        for idx in tqdm(
+                    iterable=range(len(enumerated_y)),
+                    desc="Undersampling Dataset (Part " + str(file_idx - 1) + ")",
+                    total=len(enumerated_y),
+                    colour='blue'
+                    ):
+            #  Error checking to make sure the partitioned X and y data matches the original
+            for i, ring_pos in enumerated_y[idx][1]['True_Ring_Pos'].items():
+                assert ring_pos == y[tx_count]['True_Ring_Pos'][i]
+            result = undersample_processing(enumerated_y[idx], enumerated_X[idx], min_occurrences, occurrences, predicting)
+            assert len(result[0]) == len(result[1])
+            if result[0] and result[1]:
+                #  Add to the new X and y dataframes
+                new_X = new_X + result[0]
+                new_y = new_y + result[1]
+            tx_count += 1
+        del enumerated_X
+        del enumerated_y
+        collect()
+        if sum(list(occurrences.values())) != 0:
+            print("Number of Undersampled Ring Signatures: " + blue + str(sum(list(occurrences.values()))) + reset)
+    # Combine the list of series together into a single DF
+    undersampled_X = DataFrame(new_X)
+    del new_X, y  # Free up RAM
     collect()  # Garbage collector
     #  Fill Nan values to be -1 and reset indexing
     undersampled_X.fillna(-1, inplace=True)
     undersampled_X.reset_index(drop=True, inplace=True)
 
     #  Error Checking
-    assert len(undersampled_X) == len(undersampled_y) == (min_occurrences * NUM_RING_MEMBERS)
-    for _, class_occurrences in Counter(undersampled_y).items():
-        try:
-            assert class_occurrences == min_occurrences
-        except AssertionError as e:
-            print("A class had a number of samples which did not equal the undersampled number of occurrences.")
-            print(Counter(undersampled_y).items())
-            exit(1)
+    if not predicting:
+        assert len(undersampled_X) == len(new_y) == (min_occurrences * NUM_RING_MEMBERS)
+        for _, class_occurrences in Counter(new_y).items():
+            try:
+                assert class_occurrences == min_occurrences
+            except AssertionError as e:
+                print("A class had a number of samples which did not equal the undersampled number of occurrences.")
+                print(Counter(new_y).items())
+                exit(1)
+    else:
+        assert len(undersampled_X) == len(new_y)
 
     # Shuffle the data one last time and reset the indexing
-    undersampled_X, undersampled_y = shuffle(undersampled_X, undersampled_y)
+    undersampled_X, undersampled_y = shuffle(undersampled_X, new_y, random_state=101)
     undersampled_X.reset_index(drop=True, inplace=True)
     return undersampled_X, undersampled_y
 
@@ -825,75 +811,83 @@ def write_dict_to_csv(data_dict):
 
 def validate_data_integrity(X, y, undersampled=False):
     print(blue + "\nData Integrity Check" + reset)
-    with open("./Dataset_Files/dataset.json", "r") as fp:
-        original_data = json.load(fp)
     if undersampled:
+        #  We assume that the dataset.json contains identical data to X.pkl
+        with open("./Dataset_Files/X.pkl", "rb") as fp:
+            original_data = pickle.load(fp)
+        with open("./Dataset_Files/y.pkl", "rb") as fp:
+            original_labels = pickle.load(fp)
         X_Undersampled = X
         y_Undersampled = y
         bad = 0
         good = 0
-        bad_val = len(X_Undersampled.index[X_Undersampled['Input.Median_Ring_Time'] == -1])
-        skip = 0
         total = 0
-        key_error = 0
+        not_found = 0
         #  Make sure there are no duplicate rows
-        assert len(X_Undersampled[X_Undersampled.duplicated()]) == 0
-
-        #  Get each dict of data values
-        for i, val in tqdm(enumerate(original_data.values()), total=len(original_data), colour='blue', desc="Validating Undersampled Dataset"):
-            for input_num in range(len(val['Inputs'])):
-                #  check if the median ring time is not null
-                mean_ring_time = val['Inputs'][input_num]['Mean_Ring_Time']
-                med_ring_time = val['Inputs'][input_num]['Median_Ring_Time']
-                #  Find all occurrences of the median ring time in the undersampled dataset
-                find_undersampled_mean_idx = X_Undersampled.index[X_Undersampled['Input.Mean_Ring_Time'] == mean_ring_time].tolist()
-                find_undersampled_med_idx = X_Undersampled.index[X_Undersampled['Input.Median_Ring_Time'] == med_ring_time].tolist()
-                #  Check if there were occurrences
-                if find_undersampled_mean_idx and find_undersampled_med_idx:
-                    if len(find_undersampled_mean_idx) == 1 and len(find_undersampled_med_idx) == 1 and find_undersampled_mean_idx[0] == find_undersampled_med_idx[0]:
+        ring_member_columns = [name for name in original_data.columns if "Mean_Ring_Time" in name]
+        for each_idx in tqdm(range(len(X_Undersampled)), total=len(X_Undersampled), colour='blue', desc="Validating Undersampled Dataset"):
+            find_undersampled_mean_idx = X_Undersampled['Input.Mean_Ring_Time'][each_idx]
+            find_undersampled_tx_delta_idx = X_Undersampled['Input.Previous_Tx_Time_Deltas.0'][each_idx]
+            find_undersampled_tx_delta_idx_1 = X_Undersampled['Tx_Fee'][each_idx]
+            for column_idx, column_name in enumerate(ring_member_columns):
+                input_num = int(column_name.split(".")[1])
+                list_of_matched_mean_idx = original_data.index[(original_data[column_name] == find_undersampled_mean_idx)].to_numpy()
+                list_of_matched_mean_idx2 = original_data.index[(original_data['Inputs.' + str(input_num) + '.Previous_Tx_Time_Deltas.0'] == find_undersampled_tx_delta_idx)].to_numpy()
+                list_of_matched_mean_idx3 = original_data.index[(original_data['Tx_Fee'] == find_undersampled_tx_delta_idx_1)].to_numpy()
+                list_of_matches = intersect1d(list_of_matched_mean_idx, list_of_matched_mean_idx2, assume_unique=True)
+                final_matches = list(intersect1d(list_of_matches, list_of_matched_mean_idx3, assume_unique=True))
+                if final_matches and len(final_matches) == 1:
                         total += 1
-                        undersample_index = find_undersampled_mean_idx[0]
-                        ground_truth = int(val['Inputs'][input_num]['Ring_no/Ring_size'].split("/")[0])
-                        if ground_truth == y_Undersampled[undersample_index]:
+
+                        if int(original_labels[final_matches[0]]['True_Ring_Pos'][input_num].split("/")[0]) == y_Undersampled[each_idx]:
                             good += 1
                         else:
                             bad += 1
-                            print(input_num)
+                            print(each_idx)
+                            print(final_matches[0])
+                            print(original_labels[final_matches[0]]['True_Ring_Pos'])
+                            print(y_Undersampled[each_idx])
+                        break
                 else:
-                    skip += 1
+                    if column_idx+1 == len(ring_member_columns):
+                        not_found += 1
         print("=============================")
-        print("|| Total Samples: " + blue + str(len(X_Undersampled)) + reset)
-        print("|| Validated Samples: " + blue + str(good) + reset)
-        print("|| Bad Samples: " + red + str(bad) + reset)
-        print("|| Null Value: " + red + str(bad_val) + reset)
-        print("|| Skipped Samples: " + red + str(skip) + reset)
-        print("|| Key Error: " + red + str(key_error) + reset)
-        if (total / good * 100) == 100:
+        print("|| Total Dataset Ring Signatures: " + blue + str(total) + reset)
+        print("|| Total Undersampled Samples: " + blue + str(len(X_Undersampled)) + reset)
+        print("|| Undersampled Validated Samples: " + blue + str(good) + reset)
+        print("|| Undersampled Bad Samples: " + red + str(bad) + reset)
+        print("|| Undersampled Samples Not Found: " + red + str(not_found) + reset)
+        if (total / good * 100) == 100 and total == len(X_Undersampled):
             print("|| " + green + "100% data integrity!" + reset)
         else:
-            print("|| " + red + "ERROR: " + str((len(X_Undersampled)/good*100)-100) + "% data corruption!" + reset)
-            exit(1)
+            print("|| " + red + "ERROR: " + str(round((total/good*100)-100, 2)) + "% data corruption!" + reset)
+            if total != len(X_Undersampled):
+                print("|| " + red + "ERROR: Only checked " + str(total) + " of " + str(len(X_Undersampled)) + " total samples!" + reset)
     else:
+        with open("./Dataset_Files/dataset.json", "r") as fp:
+            original_data = json.load(fp)
         bad = 0
         good = 0
-        bad_val = 0
         skip = 0
-        key_error = 0
         total = 0
+        checked_samples = 0
+        #  Make sure there are no duplicate rows
+        assert len(X[X.duplicated()]) == 0
         #  Get each dict of data values
         for i, val in tqdm(enumerate(original_data.values()), total=len(original_data), colour='blue', desc="Validating Dataset"):
+            #  Iterate over each ring signature
             for input_num in range(len(val['Inputs'])):
+                total += 1
                 #  check if the median ring time is not null
                 mean_ring_time = val['Inputs'][input_num]['Mean_Ring_Time']
                 med_ring_time = val['Inputs'][input_num]['Median_Ring_Time']
                 #  Find all occurrences of the median ring time in the undersampled dataset
                 find_undersampled_mean_idx = X.index[X['Inputs.' + str(input_num) + '.Mean_Ring_Time'] == mean_ring_time].tolist()
                 find_undersampled_med_idx = X.index[X['Inputs.' + str(input_num) + '.Median_Ring_Time'] == med_ring_time].tolist()
-
                 #  Check if there were occurrences
                 if find_undersampled_mean_idx and find_undersampled_med_idx:
                     if len(find_undersampled_mean_idx) == 1 and len(find_undersampled_med_idx) == 1 and find_undersampled_mean_idx[0] == find_undersampled_med_idx[0]:
-                        total += 1
+                        checked_samples += 1
                         undersample_index = find_undersampled_mean_idx[0]
                         ground_truth = int(val['Inputs'][input_num]['Ring_no/Ring_size'].split("/")[0])
                         if input_num >= len(y[undersample_index]['True_Ring_Pos']):
@@ -906,16 +900,15 @@ def validate_data_integrity(X, y, undersampled=False):
                 else:
                     skip += 1
         print("=============================")
-        print("|| Total Samples: " + blue + str(total) + reset)
+        print("|| Total Dataset Ring Signatures: " + blue + str(total) + reset)
+        print("|| Total Checked Samples: " + blue + str(checked_samples) + reset)
         print("|| Validated Samples: " + blue + str(good) + reset)
         print("|| Bad Samples: " + red + str(bad) + reset)
-        print("|| Null Value: " + red + str(bad_val) + reset)
-        print("|| Skipped Samples: " + red + str(skip) + reset)
-        print("|| Key Error: " + red + str(key_error) + reset)
-        if (total / good * 100) == 100:
+        print("|| Dataset Skipped Samples: " + red + str(skip) + reset)
+        if (checked_samples / good * 100) == 100:
             print("|| " + green + "100% data integrity!" + reset)
         else:
-            print("|| " + red + "ERROR: " + str((total / good * 100)-100) + "% data corruption!" + reset)
+            print("|| " + red + "ERROR: " + str(round((checked_samples / good * 100)-100, 2)) + "% data corruption!" + reset)
             exit(1)
     print()
     del original_data  # Free up RAM
@@ -934,9 +927,9 @@ def main():
     # Configuration alert
     print("The dataset is being collected for the " + blue + NETWORK + reset + " network using " + API_URL + " as a block explorer!")
 
-    if exists("./Dataset_Files/dataset.csv"):
+    if exists("./Dataset_Files/dataset.csv"):  # TODO Add deletion of enumerated files
         while True:
-            answer = input(blue + "Dataset files exists already. They will be overwritten, Delete them? (y/n)" + reset)
+            answer = input(blue + "Dataset files exists already. They will be overwritten, Delete them? (y/n) " + reset)
             if answer.lower()[0] == "y":
                 remove("./Dataset_Files/dataset.csv")
                 break
@@ -999,7 +992,7 @@ def main():
     with open("./Dataset_Files/y.pkl", "rb") as fp:
         y = pickle.load(fp)
 
-    X_Undersampled, y_Undersampled = undersample(X, y)
+    X_Undersampled, y_Undersampled = undersample(X, y, predicting=False)
     del X, y
     collect()  # Garbage collector
 
@@ -1010,7 +1003,6 @@ def main():
         pickle.dump(y_Undersampled, fp)
 
     validate_data_integrity(X_Undersampled, y_Undersampled, undersampled=True)
-
     print(blue + "./Dataset_Files/X_Undersampled.pkl" + reset + " and " + blue + "./Dataset_Files/y_Undersampled.pkl" + reset + " written to disk!\nFinished")
 
 
@@ -1021,6 +1013,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt as e:
         print("Error: User stopped the script's execution!")
         exit(1)
+    #  All other raised errors, print the stack trace
     except Exception as e:
         import traceback
         print(e)
