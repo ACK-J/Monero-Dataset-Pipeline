@@ -22,7 +22,7 @@ options.mode.chained_assignment = None  # default='warn'
 '''
 Description: 
 Usage: ./create_dataset.py < Wallets Directory Path >
-Date: 6/14/2022
+Date: 7/6/2022
 Author: ACK-J
 
 Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
@@ -38,10 +38,10 @@ To run your own block explorer:
 ######################
 data = {}                               # Key = tx hash, val = dict(transaction metadata)
 NUM_PROCESSES = cpu_count()             # Set the number of processes for multiprocessing
-NETWORK = "stagenet"                     # testnet, stagenet, mainnet
+NETWORK = "stagenet"                    # testnet, stagenet, mainnet
 API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
 API_URL = "http://127.0.0.1:8081/api"   # Local Monero Block Explorer
-NUM_RING_MEMBERS = 11                   # DL models depend on a discrete number
+NUM_RING_MEMBERS = 11                   # DL models depend on a discrete number of rings
 
 ###################################################################################
 #     You shouldn't need to edit anything below this line unless things break     #
@@ -99,38 +99,6 @@ def enrich_data(tx_dict_item):
     transaction_entry['Block_Size'] = block_response["size"]
     transaction_entry['Time_Since_Last_Block'] = int((datetime.fromtimestamp(int(block_response["timestamp"])) - datetime.fromtimestamp(int(previous_block_response["timestamp"]))).total_seconds())
 
-    #  Output info TODO
-    # for Decoy in transaction_entry['Outputs']['Decoys_On_Chain']:
-    #     #  Add Temporal Features for the decoy ( This takes up a ton of time )
-    #     #  Retrieve the transaction information about the decoy ring signatures
-    #     decoy_tx_response = get_xmr_tx(str(Decoy['Tx_Hash']))
-    #     #  Iterate through each input
-    #     for decoy_input in decoy_tx_response['inputs']:
-    #         #  Create an entry for the temporal data
-    #         Decoy['Time_Deltas_Between_Ring_Members'] = {}
-    #         #  Make sure there is at least 1 mixin
-    #         if len(decoy_input['mixins']) != 0:
-    #             #  A place to store the block times of each ring member
-    #             Ring_Member_Times = []
-    #             #  Iterate through each mixin, add it to the list and calculate the time deltas
-    #             for member_idx, each_member in enumerate(decoy_input['mixins']):
-    #                 Ring_Member_Times.append(get_xmr_block(str(each_member['block_no']))['timestamp'])
-    #                 #  If the list has at least 2 items
-    #                 if len(Ring_Member_Times) > 1:
-    #                     time_delta = int((datetime.fromtimestamp(Ring_Member_Times[member_idx]) - datetime.fromtimestamp(Ring_Member_Times[member_idx - 1])).total_seconds())
-    #                     Decoy['Time_Deltas_Between_Ring_Members'][str(member_idx - 1) + '_' + str(member_idx)] = time_delta
-    #                     # Add temporal features
-    #                     #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
-    #                     Decoy['Time_Deltas_Between_Ring_Members']['Total_Decoy_Time_Span'] = int((datetime.fromtimestamp(Ring_Member_Times[len(Ring_Member_Times) - 1]) - datetime.fromtimestamp(Ring_Member_Times[0])).total_seconds())
-    #                     #  Calculate the time between the newest ring in the signature to the block time of the transaction
-    #                     Decoy['Time_Deltas_Between_Ring_Members']['Time_Delta_From_Newest_Ring_To_Block'] = int((datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch']) - datetime.fromtimestamp(Ring_Member_Times[len(Ring_Member_Times) - 1])).total_seconds())
-    #                     #  Calculate the time between the oldest ring in the signature to the block time of the transaction
-    #                     Decoy['Time_Deltas_Between_Ring_Members']['Time_Delta_From_Oldest_Ring_To_Block'] = int((datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch']) - datetime.fromtimestamp(Ring_Member_Times[0])).total_seconds())
-    #                     #  Calculate the mean of the ring time
-    #                     Decoy['Time_Deltas_Between_Ring_Members']['Mean_Ring_Time'] = int(sum(Ring_Member_Times) / len(Ring_Member_Times)) - Ring_Member_Times[0]
-    #                     #  Calculate the median of the ring time
-    #                     Decoy['Time_Deltas_Between_Ring_Members']['Median_Ring_Time'] = int(median(Ring_Member_Times)) - Ring_Member_Times[0]
-
     #  Add Input Information
     for input_idx, input in enumerate(tx_response['inputs']):
         transaction_entry['Inputs'].append(
@@ -146,12 +114,7 @@ def enrich_data(tx_dict_item):
         transaction_entry['Inputs'][input_idx]['Previous_Tx_Time_Deltas'] = {}
         transaction_entry['Inputs'][input_idx]['Previous_Tx_Block_Num_Delta'] = {}
         transaction_entry['Inputs'][input_idx]['Previous_Tx_TxExtra_Len'] = {}
-        # transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Occurrences'] = {}
-        # transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Times'] = {}
-        # #  Initialize the occurrences with 0's
-        # for each in range(len(input['mixins'])):
-        #     transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Occurrences'][str(each)] = 0
-        #     transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Times'][str(each)] = []
+        transaction_entry['Inputs'][input_idx]['Decoys'] = {}
 
         # Iterate over each mixin in the input
         for ring_mem_num, ring in enumerate(input['mixins']):
@@ -175,53 +138,58 @@ def enrich_data(tx_dict_item):
             transaction_entry['Inputs'][input_idx]['Previous_Tx_Block_Num_Delta'][str(ring_mem_num)] = int(transaction_entry['Block_Number']) - int(prev_tx['block_height'])
             #  Get the length of the tx_extra from each mixin transaction
             transaction_entry['Inputs'][input_idx]['Previous_Tx_TxExtra_Len'][str(ring_mem_num)] = len(prev_tx['extra'])
-            conn = psycopg2.connect("host=127.0.0.1 port=18333 dbname=xmrstagedb user=xmrack password=xmrack")
-            with conn.cursor() as cur:
-                query = """WITH txinfo AS (
-    SELECT
+
+    conn = psycopg2.connect("host=127.0.0.1 port=18333 dbname=xmrstagedb user=xmrack password=xmrack")
+    with conn.cursor() as cur:
+        query = """
+WITH txinfo AS (
+    SELECT 
         X.tx_block_height AS height_B,
-        X.tx_block_timestamp AS time_B,
-        X.tx_vin_index AS input_pos_B,
+        X.tx_vin_index AS input_pos,
         X.ringmember_block_height AS height_A,
         X.ringmember_txo_key AS stealth_addr_A,
-        X.ringmember_block_timestamp AS time_A,
-        X.ringmember_tx_txo_index AS decoy_idx_A,
-        X.tx_vin_ringmember_index AS ring_pos_B
+        X.tx_vin_ringmember_index AS input_mem_idx
     FROM tx_ringmember_list X
     WHERE X.tx_hash = %s
 )
-SELECT DISTINCT
-    stealth_addr_A, ring_pos_B, input_pos_B, decoy_idx_A, height_A, time_A, height_B, time_B
+SELECT DISTINCT  
+    height_A,
+    Y.ringtx_block_height AS height_B,
+    input_pos,
+    input_mem_idx
 FROM ringmember_tx_list Y
-JOIN txinfo ON Y.txo_key = stealth_addr_A
+JOIN txinfo T ON T.stealth_addr_A = Y.txo_key
 WHERE Y.ringtx_block_height >= height_A AND Y.ringtx_block_height <= height_B
+ORDER BY input_pos, input_mem_idx, height_B ASC
 """
-                cur.execute(query, ('\\x' + tx_hash,))
-                results = cur.fetchall()
-                pass
+        cur.execute(query, ('\\x' + tx_hash,))
+        results = cur.fetchall()
 
-            # #  Iterate through each block between where the ring member was created and now  TODO
-            # for block in range((ring['block_no']+1), transaction_entry['Block_Number']):
-            #     #  Get the data for the entire block
-            #     temp_block = get_xmr_block(block_cache, str(block))
-            #     #  Iterate over each transaction in the block
-            #     for tx in temp_block["txs"]:
-            #         try:
-            #             #  Get the data for each transaction and iterate over the inputs
-            #             for each_input in get_xmr_tx(tx_cache, str(tx['tx_hash']))["inputs"]:
-            #                 #  For each input iterate over each ring member
-            #                 for ring_member in each_input['mixins']:
-            #                     #  Check to see if the ring members stealth address matches the current rings
-            #                     if ring_member['public_key'] == ring['public_key']:
-            #                         transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Occurrences'][str(ring_mem_num)] += 1
-            #                         transaction_entry['Inputs'][input_idx]['Previous_Tx_Decoy_Times'][str(ring_mem_num)].append(temp_block['timestamp'])
-            #         except TypeError as e:  # If there are no inputs
-            #             pass
+        previous_input_mem = None
+        num_decoys_found = 0
+        for result_idx, occurrence in enumerate(results):
+            num_decoys_found += 1
+            Block_A, Block_B, Input_Pos, Input_Member_Idx = occurrence
+            Input_Pos -= 1
+            Input_Member_Idx -= 1
+            if previous_input_mem is None:
+                previous_input_mem = (Input_Pos, Input_Member_Idx)
+            elif previous_input_mem != (Input_Pos, Input_Member_Idx):
+                transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['Number_Of_On_Chain_Decoys'] = len(transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['On_Chain_Decoy_Block_Deltas'])
+                assert transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['On_Chain_Decoy_Block_Deltas']["0_" + str(num_decoys_found-1)] == transaction_entry['Block_Number'] - transaction_entry['Inputs'][previous_input_mem[0]]['Ring_Members'][previous_input_mem[1]]['block_no']
+                previous_input_mem = (Input_Pos, Input_Member_Idx)
+                num_decoys_found = 1
+            elif result_idx+1 == len(results):
+                transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['Number_Of_On_Chain_Decoys'] = len(transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['On_Chain_Decoy_Block_Deltas'])
+            if Input_Member_Idx not in transaction_entry['Inputs'][Input_Pos]['Decoys'].keys():
+                transaction_entry['Inputs'][Input_Pos]['Decoys'][Input_Member_Idx] = {}
+                transaction_entry['Inputs'][Input_Pos]['Decoys'][Input_Member_Idx]['On_Chain_Decoy_Block_Deltas'] = {}
+            transaction_entry['Inputs'][Input_Pos]['Decoys'][Input_Member_Idx]['On_Chain_Decoy_Block_Deltas']["0_" + str(num_decoys_found)] = Block_B - Block_A
+
 
     # Calculate lengths
     transaction_entry['Num_Inputs'] = len(transaction_entry['Inputs'])
     transaction_entry['Num_Outputs'] = len(transaction_entry['Outputs']['Output_Data'])
-    #transaction_entry['Num_Output_Decoys'] = len(transaction_entry['Outputs']['Decoys_On_Chain'])
     transaction_entry['Block_To_xmr2csv_Time_Delta'] = int((datetime.fromtimestamp(transaction_entry['xmr2csv_Data_Collection_Time']) - datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch'])).total_seconds())
 
     # Temporal Features
@@ -259,29 +227,6 @@ WHERE Y.ringtx_block_height >= height_A AND Y.ringtx_block_height <= height_B
                 transaction_entry['Inputs'][each_input]['Ring_no/Ring_size'] = true_ring_position
     #  Delete the temporary dict() holding the true ring positions
     del transaction_entry['Input_True_Rings']
-
-    # #  Temporal features for decoys on chain TODO
-    # transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain'] = {}
-    # if len(transaction_entry['Outputs']['Decoys_On_Chain']) != 0:
-    #     #  A place to store the block times of each ring member
-    #     decoys_on_chain_times = []
-    #     for member_idx, each_member in enumerate(transaction_entry['Outputs']['Decoys_On_Chain']):
-    #         decoys_on_chain_times.append(get_xmr_block(str(each_member['Block_Number']))['timestamp'])
-    #         #  If the list has at least 2 items
-    #         if len(decoys_on_chain_times) > 1:
-    #             time_delta = int((datetime.fromtimestamp(decoys_on_chain_times[member_idx]) - datetime.fromtimestamp(decoys_on_chain_times[member_idx - 1])).total_seconds())
-    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain'][str(member_idx-1) + '_' + str(member_idx)] = time_delta
-    #             # Add temporal features
-    #             #  Calculate the total time span of the ring signature ( newest ring on chain block time - oldest ring on chain block time )
-    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Total_Decoy_Time_Span'] = int((datetime.fromtimestamp(decoys_on_chain_times[len(decoys_on_chain_times)-1]) - datetime.fromtimestamp(decoys_on_chain_times[0])).total_seconds())
-    #             #  Calculate the time between the newest ring in the signature to the block time of the transaction
-    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Time_Delta_From_Newest_Decoy_To_Block'] = int((datetime.fromtimestamp(decoys_on_chain_times[len(decoys_on_chain_times)-1]) - datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch'])).total_seconds())
-    #             #  Calculate the time between the oldest ring in the signature to the block time of the transaction
-    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Time_Delta_From_Oldest_Decoy_To_Block'] = int((datetime.fromtimestamp(decoys_on_chain_times[0]) - datetime.fromtimestamp(transaction_entry['Block_Timestamp_Epoch'])).total_seconds())
-    #             #  Calculate the mean of the ring time
-    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Mean_Decoy_Time'] = sum(decoys_on_chain_times) / len(decoys_on_chain_times) - decoys_on_chain_times[0]
-    #             #  Calculate the median of the ring time
-    #             transaction_entry['Outputs']['Time_Deltas_Between_Decoys_On_Chain']['Median_Decoy_Time'] = int(median(decoys_on_chain_times)) - decoys_on_chain_times[0]
     return tx_hash, transaction_entry
 
 
@@ -296,6 +241,7 @@ def combine_files(Wallet_info):
     #  CSV HEADER -> "block, direction, unlocked, timestamp, amount, running balance, hash, payment ID, fee, destination, amount, index, note"
     #                   0        1          2         3         4           5           6        7       8         9        10      11    12
     wallet_tx_data = {}
+    empty_wallet_warning = 0
 
     #  Do some error checking, make sure the file exists
     if exists(Wallet_dir + "/cli_export_" + Wallet_addr + ".csv"):
@@ -357,7 +303,11 @@ def combine_files(Wallet_info):
                             wallet_tx_data[tx_hash]['Wallet_Output_Number_Spent'] = int(xmr2csv_report_csv_values[10].strip())
                             #  Add Output Information
                             out_tx = get(API_URL + "/transaction/" + str(tx_hash)).json()
-                            assert out_tx['status'] != "fail"
+                            try:
+                                assert out_tx['status'] != "fail"
+                            except AssertionError as e:
+                                print(red + "Error: Transaction lookup failed" + reset)
+                                exit(1)
                             output_info = out_tx["data"]['outputs']
                             for output_idx, output in enumerate(output_info):
                                 wallet_tx_data[tx_hash]['Outputs']['Output_Data'].append({'Amount': output['amount'], 'Stealth_Address': output['public_key']})
@@ -373,43 +323,6 @@ def combine_files(Wallet_info):
                             #                      0          1            2               3            4            5
                             # with open(Wallet_dir + "/xmr_report_ring_members_" + Wallet_addr + ".csv", "r") as fp2:
                             #     next(fp2)  # Skip header of csv
-                            #     for line2 in fp2:
-                            #         ring_members_csv_values = line2.split(",")
-                            #         Ring_Member = {}
-                            #         #  Only collect 10 decoys found on chain because it gets too resource intensive when
-                            #         #  calculating all the temporal features for every decoy's ring signatures
-                            #         if len(wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain']) >= 0:  # TODO Debugging Change back
-                            #             break
-                            #         #  Iterate through each output from the transaction
-                            #         for tx_output in wallet_tx_data[tx_hash]['Outputs']['Output_Data']:
-                            #             #  Check if the ring members public key matches an output in this transaction
-                            #             if tx_output['Stealth_Address'] == ring_members_csv_values[3].strip():
-                            #                 Ring_Member['Output_Pub_Key'] = ring_members_csv_values[3].strip()
-                            #                 Ring_Member['Block_Number'] = int(ring_members_csv_values[1].strip())
-                            #                 # Convert timestamp to epoch time before saving
-                            #                 #  https://stackoverflow.com/questions/30468371/how-to-convert-python-timestamp-string-to-epoch
-                            #                 p = "%Y-%m-%d %H:%M:%S"
-                            #                 epoch = datetime(1970, 1, 1)
-                            #                 ring_member_epoch_time = int((datetime.strptime(ring_members_csv_values[0].strip(), p) - epoch).total_seconds())
-                            #                 Ring_Member['Block_Timestamp'] = ring_member_epoch_time
-                            #                 Ring_Member['Key_image'] = ring_members_csv_values[4].strip()
-                            #                 Ring_Member['Tx_Hash'] = ring_members_csv_values[2].strip()
-                            #                 Ring_Member['Ring_no/Ring_size'] = ring_members_csv_values[5].strip()
-                            #                 #  Find the relative age of the outputs public key on the chain compared to when xmr2csv was ran
-                            #                 #  The time from when the data was collected minus the decoy block timestamp
-                            #                 Ring_Member['Ring_Member_Relative_Age'] = int((datetime.fromtimestamp(wallet_tx_data[tx_hash]['xmr2csv_Data_Collection_Time']) - datetime.fromtimestamp(Ring_Member['Block_Timestamp'])).total_seconds())
-                            #
-                            #                 #  CSV HEADERS -> "Output_pub_key, Frequency, Ring_size"
-                            #                 #                         0            1           2
-                            #                 with open(Wallet_dir + "/xmr_report_ring_members_freq_" + Wallet_addr + ".csv", "r") as fp3:
-                            #                     next(fp3)  # Skip header of csv
-                            #                     for line3 in fp3:
-                            #                         ring_member_freq_csv_values = line3.split(",")
-                            #                         #  Check if the ring members public key matches the current public key
-                            #                         if wallet_tx_data[tx_hash]['Output_Pub_Key'] == ring_member_freq_csv_values[0].strip():
-                            #                             #  Add the amount of times it has been seen on chain
-                            #                             Ring_Member['Ring_Member_Freq'] = int(ring_member_freq_csv_values[1].strip())
-                            #                 wallet_tx_data[tx_hash]['Outputs']['Decoys_On_Chain'].append(Ring_Member)
 
                 #  CSV HEADERS -> "Timestamp, Block_no, Tx_hash, Output_pub_key, Key_image, Ring_no/Ring_size"
                 #                      0          1        2            3            4              5
@@ -425,7 +338,8 @@ def combine_files(Wallet_info):
                             #  Set the key image as the dictionary key and 'Ring_no/Ring_size' as the value
                             wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()]['Input_True_Rings'][xmr2csv_outgoing_csv_values[4].strip()] = xmr2csv_outgoing_csv_values[5].strip()
             else:
-                print(yellow + "Warning: " + reset + str(Wallet_dir) + " did not contain any transactions!")
+                empty_wallet_warning += 1
+                print(yellow + "Warning: " + reset + str(Wallet_dir) + " did not contain any transactions! (" + str(empty_wallet_warning) + ")")
     return wallet_tx_data
 
 
@@ -442,6 +356,14 @@ def discover_wallet_directories(dir_to_search):
             exit(1)
     except FileNotFoundError as e:
         print(red + "Error: {} is a non-existent directory!".format(dir_to_search) + reset)
+        exit(1)
+
+    #  Make sure the user ran collect.sh before create_dataset.py
+    for fname in listdir(dir_to_search):
+        if fname.endswith('.csv'):
+            break
+    else:
+        print(red + "Error: No CSV files detected. Make sure you run collect.sh first!" + reset)
         exit(1)
 
     # traverse root directory, and list directories as dirs and files as files
@@ -524,10 +446,9 @@ def clean_transaction(transaction):
     del transaction['Sender_Address']
     del transaction['Network']
     del transaction['Outputs']
-    # del transaction['Outputs']['Output_Data']
-    # del transaction['Outputs']['Decoys_On_Chain']  # TODO NEED TO EXPAND UPON THIS
     for idx, input in enumerate(transaction['Inputs']):
         del input['Key_Image']
+        del input['Amount']
         del input['Ring_Members']
         private_info['True_Ring_Pos'][idx] = input['Ring_no/Ring_size']
         del input['Ring_no/Ring_size']
@@ -542,8 +463,7 @@ def clean_transaction(transaction):
     del transaction['Payment_ID']
     del transaction['Payment_ID8']
     del transaction['Time_Of_Enrichment']
-    del transaction['Tx_Extra']  # TODO NEED TO USE THIS LATER ON
-    del transaction['Num_Output_Decoys']  # TODO
+    del transaction['Tx_Extra']
     del transaction['Block_To_xmr2csv_Time_Delta']
     return private_info
 
@@ -565,7 +485,7 @@ def create_feature_set(database):
             private_info = clean_transaction(database[tx_hash])
         except Exception as e:
             num_errors += 1
-            continue  # Dont process the tx and loop
+            continue  # Don't process the tx and loop
         assert len(database[tx_hash]['Inputs']) == len(private_info['True_Ring_Pos'])
         num_of_valid_txs += 1
         #  Flatten each transaction and iterate over each feature
@@ -663,7 +583,9 @@ def undersample(X, y, predicting):
         #  Make sure that there are no classes with 0 labels
         assert len(labels_distribution) == NUM_RING_MEMBERS
     except AssertionError as e:
-        print(red + "Error: The dataset contains at least one class which has 0 labels! Undersampling not possible." + reset)
+        print(red + "Error: The dataset contains at least one class which has 0 labels! Undersampling not possible.")
+        print(labels_distribution)
+        print(reset)
         exit(1)
 
     #  Find the smallest number of occurrences
@@ -950,6 +872,12 @@ def main():
         assert get(API_URL + "/block/1").status_code == 200
     except ConnectionError as e:
         print("Error: " + red + NETWORK + reset + " block explorer located at " + API_URL + " refused connection!")
+        exit(1)
+    # Check if the user set up the block explorer correctly
+    try:
+        assert get(API_URL + "/networkinfo").json()["data"] is not None and get(API_URL + "/networkinfo").json()["data"][NETWORK]
+    except AssertionError as e:
+        print(red + "Error: The block explorer is not configured for " + NETWORK + "!" + reset)
         exit(1)
     # Configuration alert
     print("The dataset is being collected for the " + blue + NETWORK + reset + " network using " + API_URL + " as a block explorer!")
