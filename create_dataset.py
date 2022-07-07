@@ -2,6 +2,7 @@ import json
 import pickle
 import psycopg2
 from sys import argv
+from glob import glob
 from time import time
 from tqdm import tqdm
 from gc import collect
@@ -42,6 +43,12 @@ NETWORK = "stagenet"                    # testnet, stagenet, mainnet
 API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
 API_URL = "http://127.0.0.1:8081/api"   # Local Monero Block Explorer
 NUM_RING_MEMBERS = 11                   # DL models depend on a discrete number of rings
+
+POSTGRES_SQL_HOST = "127.0.0.1"
+POSTGRES_SQL_PORT = "18333"
+POSTGRES_SQL_USERNAME = "xmrack"
+POSTGRES_SQL_PASSWORD = "xmrack"
+POSTGRES_SQL_DB_NAME = "xmrstagedb"
 
 ###################################################################################
 #     You shouldn't need to edit anything below this line unless things break     #
@@ -139,7 +146,11 @@ def enrich_data(tx_dict_item):
             #  Get the length of the tx_extra from each mixin transaction
             transaction_entry['Inputs'][input_idx]['Previous_Tx_TxExtra_Len'][str(ring_mem_num)] = len(prev_tx['extra'])
 
-    conn = psycopg2.connect("host=127.0.0.1 port=18333 dbname=xmrstagedb user=xmrack password=xmrack")
+    try:
+        conn = psycopg2.connect("host=" + POSTGRES_SQL_HOST + " port=" + POSTGRES_SQL_PORT + " dbname=" + POSTGRES_SQL_DB_NAME + " user=" + POSTGRES_SQL_USERNAME + " password=" + POSTGRES_SQL_PASSWORD)
+    except psycopg2.OperationalError as e:
+        print(red + "ERROR: Connection to PostgresSQL Database Failed!" + reset)
+        exit(1)
     with conn.cursor() as cur:
         query = """
 WITH txinfo AS (
@@ -359,10 +370,9 @@ def discover_wallet_directories(dir_to_search):
         exit(1)
 
     #  Make sure the user ran collect.sh before create_dataset.py
-    for fname in listdir(dir_to_search):
-        if fname.endswith('.csv'):
-            break
-    else:
+    pathname = dir_to_search + "/**/*.csv"
+    files = glob(pathname, recursive=True)
+    if len(files) == 0:
         print(red + "Error: No CSV files detected. Make sure you run collect.sh first!" + reset)
         exit(1)
 
