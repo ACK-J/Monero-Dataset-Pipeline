@@ -23,7 +23,7 @@ options.mode.chained_assignment = None  # default='warn'
 '''
 Description: 
 Usage: ./create_dataset.py < Wallets Directory Path >
-Date: 7/6/2022
+Date: 7/8/2022
 Author: ACK-J
 
 Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
@@ -71,11 +71,6 @@ def get_xmr_tx(tx_hash):
 
 
 def enrich_data(tx_dict_item):
-    """
-
-    :param tx_dict_item:
-    :return:
-    """
     tx_hash = tx_dict_item[0]
     transaction_entry = tx_dict_item[1]
 
@@ -178,23 +173,34 @@ ORDER BY input_pos, input_mem_idx, height_B ASC
 
         previous_input_mem = None
         num_decoys_found = 0
+        #  Iterate over the list of results
         for result_idx, occurrence in enumerate(results):
             num_decoys_found += 1
+            #  unzip the list into variables
             Block_A, Block_B, Input_Pos, Input_Member_Idx = occurrence
+            #  Input position and member index start at 1 instead of 0. To keep
+            #  things consistent, subtract one from each.
             Input_Pos -= 1
             Input_Member_Idx -= 1
+            #  If this is the first time running
             if previous_input_mem is None:
+                #  Set the input pos and member index
                 previous_input_mem = (Input_Pos, Input_Member_Idx)
+            #  Check if the current input pos and member index is different from the previous
             elif previous_input_mem != (Input_Pos, Input_Member_Idx):
+                #  Get the length of the previous amount of on chain decoys found
                 transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['Number_Of_On_Chain_Decoys'] = len(transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['On_Chain_Decoy_Block_Deltas'])
-                assert transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['On_Chain_Decoy_Block_Deltas']["0_" + str(num_decoys_found-1)] == transaction_entry['Block_Number'] - transaction_entry['Inputs'][previous_input_mem[0]]['Ring_Members'][previous_input_mem[1]]['block_no']
+                #assert transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['On_Chain_Decoy_Block_Deltas']["0_" + str(num_decoys_found-1)] == transaction_entry['Block_Number'] - transaction_entry['Inputs'][previous_input_mem[0]]['Ring_Members'][previous_input_mem[1]]['block_no']
                 previous_input_mem = (Input_Pos, Input_Member_Idx)
                 num_decoys_found = 1
+            #  Edge case where the last result would get skipped
             elif result_idx+1 == len(results):
                 transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['Number_Of_On_Chain_Decoys'] = len(transaction_entry['Inputs'][previous_input_mem[0]]['Decoys'][previous_input_mem[1]]['On_Chain_Decoy_Block_Deltas'])
+            #  If the input key does not exist in the dictionary, add it
             if Input_Member_Idx not in transaction_entry['Inputs'][Input_Pos]['Decoys'].keys():
                 transaction_entry['Inputs'][Input_Pos]['Decoys'][Input_Member_Idx] = {}
                 transaction_entry['Inputs'][Input_Pos]['Decoys'][Input_Member_Idx]['On_Chain_Decoy_Block_Deltas'] = {}
+            #  Calculate the block difference between the first occurrence and the decoy found on chain
             transaction_entry['Inputs'][Input_Pos]['Decoys'][Input_Member_Idx]['On_Chain_Decoy_Block_Deltas']["0_" + str(num_decoys_found)] = Block_B - Block_A
 
 
@@ -249,8 +255,6 @@ def combine_files(Wallet_info):
     """
     Wallet_addr = Wallet_info[0]
     Wallet_dir = Wallet_info[1]
-    #  CSV HEADER -> "block, direction, unlocked, timestamp, amount, running balance, hash, payment ID, fee, destination, amount, index, note"
-    #                   0        1          2         3         4           5           6        7       8         9        10      11    12
     wallet_tx_data = {}
     empty_wallet_warning = 0
 
@@ -261,6 +265,8 @@ def combine_files(Wallet_info):
             #  If the file only has 1 line than it's just the csv header and the wallet had no transactions
             if len(f.readlines()) > 1:
                 # If there is transactions open the file and start parsing
+                #  CSV HEADER -> "block, direction, unlocked, timestamp, amount, running balance, hash, payment ID, fee, destination, amount, index, note"
+                #                   0        1          2         3         4           5           6        7       8         9        10      11    12
                 with open(Wallet_dir + "/cli_export_" + Wallet_addr + ".csv", "r") as fp:
                     next(fp)  # Skip header of csv
                     for line in fp:
@@ -286,7 +292,6 @@ def combine_files(Wallet_info):
 
                                 transaction['Outputs'] = {}
                                 transaction['Outputs']['Output_Data'] = list()
-                                #transaction['Outputs']['Decoys_On_Chain'] = []
                                 transaction['Inputs'] = []
 
                                 #  Add the time that xmr2csv was run
@@ -397,7 +402,7 @@ def discover_wallet_directories(dir_to_search):
             for name in files:  # Get the file name
                 #  Get each csv file
                 if name.lower().endswith(".csv"):
-                    #  Extract the 2 unique wallet addr from the name of the files
+                    #  Extract the 2 unique wallet addresses from the name of the files
                     addr = name[::-1].split(".")[1].split("_")[0][::-1]
                     if addr not in Wallet_addrs:
                         Wallet_info.append([addr, dir])
@@ -560,10 +565,10 @@ def undersample_processing(y, series, min_occurrences, occurrences, predicting):
             occurrences[ring_pos] = occurrences[ring_pos] + 1
             #  https://stackoverflow.com/questions/57392878/how-to-speed-up-pandas-drop-method
             #  Check if the column name has data relating to irrelevant ring signatures and Delete the columns
-            temp_series.drop([column for column in temp_series.index if "Inputs." in column and "." + str(ring_array_idx) + "." not in column], inplace=True)
+            temp_series.drop([column for column in temp_series.index if column.startswith("Inputs.") and not column.startswith("Inputs." + str(ring_array_idx) + ".")], inplace=True)
             #  Check if the column name is for the current ring signature
             #  Rename the column such that it doesn't have the .0. or .1. positioning information
-            temp_series.rename({column: column.replace("Inputs." + str(ring_array_idx) + ".", "Input.") for column in temp_series.index if "Inputs." + str(ring_array_idx) + "." in column}, inplace=True)
+            temp_series.rename({column: column.replace("Inputs." + str(ring_array_idx) + ".", "Input.", 1) for column in temp_series.index if column.startswith("Inputs." + str(ring_array_idx) + ".")}, inplace=True)
             #  Add to the new X and y dataframes
             new_X.append(temp_series)
             new_y.append(ring_pos)
@@ -873,7 +878,16 @@ def validate_data_integrity(X, y, undersampled=False):
     del original_data  # Free up RAM
 
 
+def delete_file(list_of_paths):
+    for path in list_of_paths:
+        if exists(path):
+            remove(path)
+
+
 def main():
+    ############################
+    #      Error Checking      #
+    ############################
     # Error Checking for command line args
     if len(argv) != 2:
         print("Usage Error: ./create_dataset.py < Wallets Directory Path >")
@@ -883,20 +897,30 @@ def main():
     except ConnectionError as e:
         print("Error: " + red + NETWORK + reset + " block explorer located at " + API_URL + " refused connection!")
         exit(1)
+
     # Check if the user set up the block explorer correctly
     try:
+        get(API_URL + "/networkinfo")  # For some reason the first request fails sometimes but the second request doesnt
         assert get(API_URL + "/networkinfo").json()["data"] is not None and get(API_URL + "/networkinfo").json()["data"][NETWORK]
     except AssertionError as e:
         print(red + "Error: The block explorer is not configured for " + NETWORK + "!" + reset)
         exit(1)
+
+    #  Check if the postgres database is set up
+    try:
+        _ = psycopg2.connect("host=" + POSTGRES_SQL_HOST + " port=" + POSTGRES_SQL_PORT + " dbname=" + POSTGRES_SQL_DB_NAME + " user=" + POSTGRES_SQL_USERNAME + " password=" + POSTGRES_SQL_PASSWORD)
+    except psycopg2.OperationalError as e:
+        print(red + "ERROR: Connection to PostgresSQL Database Failed!" + reset)
+        exit(1)
+
     # Configuration alert
     print("The dataset is being collected for the " + blue + NETWORK + reset + " network using " + API_URL + " as a block explorer!")
 
-    if exists("./Dataset_Files/dataset.csv"):  # TODO Add deletion of enumerated files
+    if len(glob("./Dataset_Files/*")) > 0:
         while True:
-            answer = input(blue + "Dataset files exists already. They will be overwritten, Delete them? (y/n) " + reset)
+            answer = input(blue + "Dataset files exists already. Delete all of them? (y/n) " + reset)
             if answer.lower()[0] == "y":
-                remove("./Dataset_Files/dataset.csv")
+                delete_file(glob("./Dataset_Files/*"))
                 break
             elif answer.lower()[0] == "n":
                 break
@@ -958,6 +982,8 @@ def main():
         y = pickle.load(fp)
 
     X_Undersampled, y_Undersampled = undersample(X, y, predicting=False)
+    #  Remove any columns which have the same value for every record ( not useful for ML )
+    X_Undersampled.drop(list(X_Undersampled.columns[X_Undersampled.nunique() == 1]), axis=1, inplace=True)
     del X, y
     collect()  # Garbage collector
 

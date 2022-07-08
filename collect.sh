@@ -2,7 +2,7 @@
 
 # Requirements: jq, parallel, xmr2csv, expect, all monero binaries
 # Before running this script first compile and run
-#               "./monerod --testnet"       https://github.com/monero-project/monero#compiling-monero-from-source
+#               "./monerod --stagenet"       https://github.com/monero-project/monero#compiling-monero-from-source
 # Before running this script first compile xmr2csv
 #               also add it to your path    https://github.com/moneroexamples/transactions-export
 # Usage: ./collect.sh
@@ -12,7 +12,7 @@
 
 # Global variables
 NODE_ADDRESS="127.0.0.1"    # testnet.community.rino.io | stagenet.community.rino.io | node.community.rino.io
-NETWORK="testnet"           # Case-sensitive (make all lowercase) (Options: "testnet", "stagenet", or "mainnet")
+NETWORK="stagenet"           # Case-sensitive (make all lowercase) (Options: "testnet", "stagenet", or "mainnet")
 num_processors=$(nproc --all)
 
 # TODO LOOK INTO ADDING --ALL-OUTPUTS AND --ALL-KEY-IMAGES
@@ -44,7 +44,7 @@ while read dir; do  # Read in all directories that contain a .keys file in the c
   cd "$dir" || exit
   echo "$dir"
   working_dir=$(pwd)
-  while read walletAddrFile; do # Loop each .txt wallet addr file
+  while read walletAddrFile; do # Loop each .address.txt wallet addr file
     #  Gets the name of the current wallet file
     walletName=$(echo $walletAddrFile | cut -f 2 -d "." | cut -f 2 -d "/")
     #  Gets the address of the current wallet
@@ -157,7 +157,7 @@ EOL
 
     fi # End error check
 
-  done < <(find ./ -type f -name "*.txt" | sort -u) #  Find text files in each wallet directory
+  done < <(find ./ -type f -name "*.address.txt" | sort -u) #  Find text files in each wallet directory
   cd - || exit
 #  Find wallet directories that contain a .keys file and only get the parent dirs
 done < <(find . -mindepth 2 -type f -name '*.keys' | sed -r 's|/[^/]+$||' | sort -u )
