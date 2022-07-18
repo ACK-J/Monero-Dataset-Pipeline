@@ -8,6 +8,8 @@
 # Usage: ./collect.sh
 # Usage: This script expects to be placed into a folder that contains wallets. Each wallet should
 #        have a Test-Wallet1, Test-Wallet1.keys, and Test-Wallet1.address.txt file.
+#        If you use a remote node for the export portion of the script, just note that
+#        you will need a local copy of the blockchain for the xmr2csv portion of the script
 
 
 # Global variables

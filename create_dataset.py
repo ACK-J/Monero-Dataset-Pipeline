@@ -256,7 +256,6 @@ def combine_files(Wallet_info):
     Wallet_addr = Wallet_info[0]
     Wallet_dir = Wallet_info[1]
     wallet_tx_data = {}
-    empty_wallet_warning = 0
 
     #  Do some error checking, make sure the file exists
     if exists(Wallet_dir + "/cli_export_" + Wallet_addr + ".csv"):
@@ -354,8 +353,7 @@ def combine_files(Wallet_info):
                             #  Set the key image as the dictionary key and 'Ring_no/Ring_size' as the value
                             wallet_tx_data[xmr2csv_outgoing_csv_values[2].strip()]['Input_True_Rings'][xmr2csv_outgoing_csv_values[4].strip()] = xmr2csv_outgoing_csv_values[5].strip()
             else:
-                empty_wallet_warning += 1
-                print(yellow + "Warning: " + reset + str(Wallet_dir) + " did not contain any transactions! (" + str(empty_wallet_warning) + ")")
+                print(yellow + "Warning: " + reset + str(Wallet_dir) + " did not contain any transactions!")
     return wallet_tx_data
 
 

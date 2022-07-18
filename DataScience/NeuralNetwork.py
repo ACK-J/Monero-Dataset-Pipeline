@@ -66,28 +66,28 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
     X_test = scaler.transform(X_test)
     scaler = StandardScaler().fit(X_Validation)
     X_Validation = scaler.transform(X_Validation)
-    #
-    # from keras_visualizer import visualizer
-    # model = Sequential()
-    # model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
-    # model.add(Dense(32, activation='relu'))
-    # model.add(Dropout(.1))
-    # model.add(Dense(64, activation='relu'))
-    # model.add(Dense(128, activation='relu'))
-    # model.add(Dense(64, activation='relu'))
-    # model.add(Dropout(.3))
-    # model.add(Dense(32, activation='relu'))
-    # model.add(Dropout(.2))
-    # model.add(Dense(11))
-    # model.add(Activation('softmax'))
-    # model.summary()
-    # # https://towardsdatascience.com/visualizing-keras-models-4d0063c8805e
-    # visualizer(model, format='png', view=True)
-    #
-    # model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    # model.fit(X_train, y_train, epochs=100, batch_size=128)
-    # with open("neural_network.pkl", "wb") as fp:
-    #     pickle.dump(model, fp)
+
+    from keras_visualizer import visualizer
+    model = Sequential()
+    model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
+    model.add(Dense(32, activation='relu'))
+    model.add(Dropout(.1))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dense(128, activation='relu'))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dropout(.3))
+    model.add(Dense(32, activation='relu'))
+    model.add(Dropout(.2))
+    model.add(Dense(11))
+    model.add(Activation('softmax'))
+    model.summary()
+    # https://towardsdatascience.com/visualizing-keras-models-4d0063c8805e
+    visualizer(model, format='png', view=True)
+
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    model.fit(X_train, y_train, epochs=100, batch_size=128)
+    with open("neural_network.pkl", "wb") as fp:
+        pickle.dump(model, fp)
     with open("neural_network.pkl", "rb") as fp:
         model = pickle.load(fp)
     score = model.evaluate(X_test, y_test, verbose=1)

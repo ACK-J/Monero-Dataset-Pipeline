@@ -22,11 +22,11 @@ def gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validatio
     #             print("Test Accuracy:", test_accuracy)
     # exit()
 
-    # model = GradientBoostingClassifier(n_estimators=200, learning_rate=0.1, random_state=RANDOM_STATE).fit(X_train, y_train)
-    # in_sample_accuracy = model.fit(X_train, y_train).score(X_train, y_train)
-    #
-    # with open("gradient_boosted.pkl", "wb") as fp:
-    #     pickle.dump(model, fp)
+    model = GradientBoostingClassifier(n_estimators=200, learning_rate=0.1, random_state=RANDOM_STATE).fit(X_train, y_train)
+    model.fit(X_train, y_train)
+
+    with open("gradient_boosted.pkl", "wb") as fp:
+        pickle.dump(model, fp)
 
     with open("gradient_boosted.pkl", "rb") as fp:
         model = pickle.load(fp)

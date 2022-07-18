@@ -86,10 +86,10 @@ def confusion_mtx(y_test, y_pred):
 
 
 def main():
-    X_train, X_test, y_train, y_test = load_data(0.2, "../PrelimDataset/X_Undersampled.pkl", "../PrelimDataset/y_Undersampled.pkl")
+    X_train, X_test, y_train, y_test = load_data(0.2, "../StagenetDataset/X_Undersampled.pkl", "../StagenetDataset/y_Undersampled.pkl")
     X_train_mainnet, _, y_train_mainnet, _ = load_data(0, "../MainnetDataset/X_Undersampled.pkl", "../MainnetDataset/y_Undersampled.pkl")
 
-    #GradientBoostedClassifier.gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_train_mainnet, y_train_mainnet)
+    GradientBoostedClassifier.gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_train_mainnet, y_train_mainnet)
     NeuralNetwork.MLP(X_train, X_test, y_train, y_test, X_train_mainnet, y_train_mainnet)
 
 
