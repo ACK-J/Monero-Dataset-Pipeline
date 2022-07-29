@@ -1,6 +1,5 @@
-# XMR-Transaction-Automation
-A script which will automate the creation of monero wallets and send transactions back and forth between them. The main purpose of this script is to create as many transactions as possible to later extract wallet information into a dataset
-
+# Monero Dataset Pipeline
+A pipeline that automates the creation and transaction of monero wallets used to collect a dataset suitable for supervised learning applications. 
 
 # Installation
 - Add machine sshkey to github
@@ -16,55 +15,26 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 ./run.sh
 ```
 
-# Check how many terminal tabs are open
-`ps --ppid $(pgrep xfce4-terminal)  | wc -l`
-
-# During collect.sh running check on progress
-`find ./ -iname *.csv | cut -d '/' -f 2 | sort -u`
-
-# After Running ./collect Gather the Ring Positions
-`find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
-
-`find . -name "*cli_export*.csv" | xargs cat | wc -l`
-
-# Debugging Large Amounts of Wallets (too many open files)
-```
-ulimit -a
-# Add this to .bashrc
-ulimit -n 10240
-```
-
-# Sample from Gamma Distribution
-```
-from math import exp
-import numpy as np
-for i in range(100000):
-	x = int(exp(np.random.gamma(19.28, 1.0/1.61, 1))) + 1200
-	with open("gamma.txt","a") as fp:
-		fp.write(str(x) + "\n")
-```
-
-# Problem Solving
+# Problem Solving and Useful Commands
 ```
 #  If collect.sh throws the error: Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached
 /home/user/monero/external/db_drivers/liblmdb/mdb_stat -rr ~/.bitmonero/testnet/lmdb/
 ```
+### During collect.sh Running Check on Progress
+`find ./ -iname *.csv | cut -d '/' -f 2 | sort -u`
+### After Running collect.sh Gather the Ring Positions
+`find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
 
-# Testnet Nodes
-```
-testnet.xmr-tw.org:28081
-testnet.community.rino.io:28081
-```
-# Stagenet Nodes
-```
-stagenet.community.rino.io
-```
-
-# Diagrams
-![Ring Members](https://user-images.githubusercontent.com/60232273/165125319-eb7f7181-b9a2-4c77-8d79-5a332de9e8c3.png)
-![run.sh](https://user-images.githubusercontent.com/60232273/165125464-a08958b8-140c-4fa8-af29-67fa39613d65.png)
-![collect.sh](https://user-images.githubusercontent.com/60232273/165125440-dcd45d20-e4a6-401d-a9d0-57b56a90cb68.png)
-![creat_dataset.py](https://user-images.githubusercontent.com/60232273/165125480-fbf94b36-a8bc-4255-bb78-259b542712f2.png)
+# Data Collection Pipeline Diagrams
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/60232273/181663123-2d0fb9c9-8787-42c8-8ec7-24b45c201bc5.png"/>
+</p>
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/60232273/181663094-ff823283-cf74-420a-b5db-f517489b9f31.png"/>
+</p>
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/60232273/181663063-2c34dbc3-ce99-49c5-9807-b952c7f4fd68.png"/>
+</p>
 
 
 
