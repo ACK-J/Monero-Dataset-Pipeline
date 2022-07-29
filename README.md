@@ -20,7 +20,7 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 #  If collect.sh throws the error: Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached
 /home/user/monero/external/db_drivers/liblmdb/mdb_stat -rr ~/.bitmonero/testnet/lmdb/
 ```
-### During collect.sh Running Check on Progress
+### Check progress of collect.sh While it is Running
 `find ./ -iname *.csv | cut -d '/' -f 2 | sort -u`
 ### After Running collect.sh Gather the Ring Positions
 `find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
