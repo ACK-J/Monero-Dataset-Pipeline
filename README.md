@@ -30,10 +30,12 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 <p align="center">
   <img src="https://user-images.githubusercontent.com/60232273/181663123-2d0fb9c9-8787-42c8-8ec7-24b45c201bc5.png"/>
 </p>
+
 ## Collect.sh
 <p align="center">
   <img src="https://user-images.githubusercontent.com/60232273/181663094-ff823283-cf74-420a-b5db-f517489b9f31.png"/>
 </p>
+
 ## Create_Dataset.py
 <p align="center">
   <img src="https://user-images.githubusercontent.com/60232273/181663063-2c34dbc3-ce99-49c5-9807-b952c7f4fd68.png"/>
