@@ -2,16 +2,15 @@
 A pipeline that automates the creation and transaction of monero wallets used to collect a dataset suitable for supervised learning applications. 
 
 # Installation
-- Add machine sshkey to github
 ```
 sudo apt update
 sudo apt install vim git jq expect tmux parallel python3 python3-tk bc curl python3-pip -y
 pip3 install numpy
 cd ~ && wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2
 tar -xvf monero-linux-x64-v0.17.3.0.tar.bz2 && cd monero-x86_64-linux-gnu-v0.17.3.0 && sudo cp monero* /usr/bin/ && cd ..
-git clone git@github.com:ACK-J/XMR-Transaction-Automation.git && cd XMR-Transaction-Automation
+git clone git@github.com:ACK-J/Monero-Dataset-Pipeline.git && cd XMR-Transaction-Automation
 chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
-# Make sure terminal and sleep value for funding is correct
+# Make sure global variables are set
 ./run.sh
 ```
 
@@ -25,7 +24,11 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 ### After Running collect.sh Gather the Ring Positions
 `find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
 
-# Data Collection Pipeline Diagrams
+
+
+
+
+# Data Collection Pipeline Flowcharts
 ## Run.sh
 <p align="center">
   <img src="https://user-images.githubusercontent.com/60232273/181663123-2d0fb9c9-8787-42c8-8ec7-24b45c201bc5.png"/>
