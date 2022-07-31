@@ -13,11 +13,10 @@
 
 
 # Global variables
-NODE_ADDRESS="127.0.0.1"    # testnet.community.rino.io | stagenet.community.rino.io | node.community.rino.io
+NODE_ADDRESS="127.0.0.1"     # testnet.community.rino.io | stagenet.community.rino.io | node.community.rino.io
 NETWORK="stagenet"           # Case-sensitive (make all lowercase) (Options: "testnet", "stagenet", or "mainnet")
 num_processors=$(nproc --all)
 
-# TODO LOOK INTO ADDING --ALL-OUTPUTS AND --ALL-KEY-IMAGES
 # TODO Pass in a directory
 
 #############################################################################
@@ -36,7 +35,7 @@ if [ -f "${parent_dir}/xmr2csv_commands.txt" ];then
     read -p "xmr2csv_commands.txt exists from a previous run. Would you like to proceed with the deletion? " answer
     case $answer in
       [Yy]* ) rm -f "${parent_dir}"/xmr2csv_commands.txt; break;;
-      [Nn]* ) break;;
+      [Nn]* ) exit 1;;
       * ) echo "Please answer yes or no.";;
     esac
   done

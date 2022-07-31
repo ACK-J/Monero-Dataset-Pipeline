@@ -1,5 +1,8 @@
 import numpy as np
 import pickle
+from sklearn.metrics import f1_score
+from statistics import stdev
+
 
 def confusion_mtx(y_test, y_pred):
     from sklearn.metrics import confusion_matrix
@@ -46,7 +49,6 @@ def confusion_mtx(y_test, y_pred):
 
 
 def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
-    import tensorflow as tf
     from keras.models import Sequential
     from keras.layers import Dense, Activation, Dropout
     from sklearn.preprocessing import StandardScaler
@@ -54,6 +56,13 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
     from sklearn.model_selection import cross_val_score
     from sklearn.model_selection import KFold
 
+    out_of_sample_f1 = []
+    mainnet_f1 = []
+
+    EPOCHS = 10#100
+    BATCH_SIZE = 128
+
+    y_test_copy = y_test.copy()
     y_test = np.asarray(y_test)
     y_train = np.asarray(y_train)
     y_test = np_utils.to_categorical(y_test)
@@ -67,38 +76,62 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
     scaler = StandardScaler().fit(X_Validation)
     X_Validation = scaler.transform(X_Validation)
 
-    from keras_visualizer import visualizer
-    model = Sequential()
-    model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
-    model.add(Dense(32, activation='relu'))
-    model.add(Dropout(.1))
-    model.add(Dense(64, activation='relu'))
-    model.add(Dense(128, activation='relu'))
-    model.add(Dense(64, activation='relu'))
-    model.add(Dropout(.3))
-    model.add(Dense(32, activation='relu'))
-    model.add(Dropout(.2))
-    model.add(Dense(11))
-    model.add(Activation('softmax'))
-    model.summary()
-    # https://towardsdatascience.com/visualizing-keras-models-4d0063c8805e
-    visualizer(model, format='png', view=True)
+    for i in range(10):
+        from keras_visualizer import visualizer
+        model = Sequential()
+        model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
+        model.add(Dense(32, activation='relu'))
+        model.add(Dropout(.1))
+        model.add(Dense(64, activation='relu'))
+        #model.add(Dense(128, activation='relu'))
+        model.add(Dense(64, activation='relu'))
+        model.add(Dropout(.3))
+        model.add(Dense(32, activation='relu'))
+        model.add(Dropout(.2))
+        model.add(Dense(11))
+        model.add(Activation('softmax'))
+        model.summary()
+        # https://towardsdatascience.com/visualizing-keras-models-4d0063c8805e
+        # visualizer(model, format='png', view=True)
 
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    model.fit(X_train, y_train, epochs=100, batch_size=128)
-    with open("neural_network.pkl", "wb") as fp:
-        pickle.dump(model, fp)
-    with open("neural_network.pkl", "rb") as fp:
-        model = pickle.load(fp)
-    score = model.evaluate(X_test, y_test, verbose=1)
-    print(score[1])
+        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        with open("neural_network.pkl", "wb") as fp:
+            pickle.dump(model, fp)
+        score = model.evaluate(X_test, y_test, verbose=1)
+        print(score[1])
 
-    y_pred = list(model.predict(X_Validation).argmax(axis=1))
-    for i in range(len(y_pred)):
-        y_pred[i] = y_pred[i] + 1
-    confusion_mtx(y_Validation, y_pred)
+        y_pred = list(model.predict(X_Validation).argmax(axis=1))
+        for i in range(len(y_pred)):
+            y_pred[i] = y_pred[i] + 1
+        #confusion_mtx(y_Validation, y_pred)
+
+        # Metrics
+        print("NN Metrics ")
+        y_pred = model.predict(X_test)
+        y_pred = np.argmax(y_pred, axis=1).tolist()
+        weighted_f1 = f1_score(y_test_copy, y_pred, average='weighted')
+        print('Weighted F1-score: {:.2f}'.format(weighted_f1))
+        out_of_sample_f1.append(weighted_f1)
+
+        y_main_predict = model.predict(X_Validation)
+        y_main_predict = np.argmax(y_main_predict, axis=1).tolist()
+        weighted_f1_mainnet = f1_score(y_Validation, y_main_predict, average='weighted')
+        print('Mainnet Weighted F1-score: {:.2f}'.format(weighted_f1_mainnet))
+        mainnet_f1.append(weighted_f1_mainnet)
 
 
-    kfold = KFold(n_splits=10, shuffle=True)
-    results = cross_val_score(model, X_test, y_test, cv=kfold)
-    print("Baseline: %.2f%% (%.2f%%)" % (results.mean() * 100, results.std() * 100))
+    # kfold = KFold(n_splits=10, shuffle=True)
+    # results = cross_val_score(model, X_test, y_test, cv=kfold)
+    # print("Baseline: %.2f%% (%.2f%%)" % (results.mean() * 100, results.std() * 100))
+
+    # Stats
+    mean = sum(out_of_sample_f1) / len(out_of_sample_f1)
+    standard_dev = stdev(out_of_sample_f1)
+
+    main_mean = sum(mainnet_f1) / len(mainnet_f1)
+    main_standard_dev = stdev(mainnet_f1)
+    print(out_of_sample_f1)
+    print(mainnet_f1)
+
+    return mean*100, standard_dev*100, main_mean*100, main_standard_dev*100

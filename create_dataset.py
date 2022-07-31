@@ -40,9 +40,10 @@ To run your own block explorer:
 data = {}                               # Key = tx hash, val = dict(transaction metadata)
 NUM_PROCESSES = cpu_count()             # Set the number of processes for multiprocessing
 NETWORK = "stagenet"                    # testnet, stagenet, mainnet
-API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
+#API_URL = "https://community.rino.io/explorer/" + NETWORK + "/api"  # Remote Monero Block Explorer
 API_URL = "http://127.0.0.1:8081/api"   # Local Monero Block Explorer
 NUM_RING_MEMBERS = 11                   # DL models depend on a discrete number of rings
+PREDICTING = False                      # If True, no undersampling will happen
 
 POSTGRES_SQL_HOST = "127.0.0.1"
 POSTGRES_SQL_PORT = "18333"
@@ -71,6 +72,11 @@ def get_xmr_tx(tx_hash):
 
 
 def enrich_data(tx_dict_item):
+    """
+
+    :param tx_dict_item:
+    :return:
+    """
     tx_hash = tx_dict_item[0]
     transaction_entry = tx_dict_item[1]
 
@@ -142,7 +148,13 @@ def enrich_data(tx_dict_item):
             transaction_entry['Inputs'][input_idx]['Previous_Tx_TxExtra_Len'][str(ring_mem_num)] = len(prev_tx['extra'])
 
     try:
-        conn = psycopg2.connect("host=" + POSTGRES_SQL_HOST + " port=" + POSTGRES_SQL_PORT + " dbname=" + POSTGRES_SQL_DB_NAME + " user=" + POSTGRES_SQL_USERNAME + " password=" + POSTGRES_SQL_PASSWORD)
+        #  https://stackoverflow.com/questions/24130305/postgres-ssl-syscall-error-eof-detected-with-python-and-psycopg
+        #  https://www.roelpeters.be/error-ssl-syscall-error-eof-detected/
+        keepalive_kwargs = {
+            "keepalives": 1,
+            "keepalives_idle": 30
+        }
+        conn = psycopg2.connect("host=" + POSTGRES_SQL_HOST + " port=" + POSTGRES_SQL_PORT + " dbname=" + POSTGRES_SQL_DB_NAME + " user=" + POSTGRES_SQL_USERNAME + " password=" + POSTGRES_SQL_PASSWORD, **keepalive_kwargs)
     except psycopg2.OperationalError as e:
         print(red + "ERROR: Connection to PostgresSQL Database Failed!" + reset)
         exit(1)
@@ -547,6 +559,15 @@ def create_feature_set(database):
 
 
 def undersample_processing(y, series, min_occurrences, occurrences, predicting):
+    """
+
+    :param y:
+    :param series:
+    :param min_occurrences:
+    :param occurrences:
+    :param predicting:
+    :return:
+    """
     new_y = []
     new_X = []
     y_idx, ring_array = y
@@ -579,6 +600,7 @@ def undersample(X, y, predicting):
 
     :param X:
     :param y:
+    :param predicting:
     :return:
     """
     #  Flatten the ring signature labels into a list
@@ -682,7 +704,7 @@ def undersample(X, y, predicting):
             tx_count += 1
         del enumerated_X
         del enumerated_y
-        collect()
+        collect()  # Garbage collector
         if sum(list(occurrences.values())) != 0:
             print("Number of Undersampled Ring Signatures: " + blue + str(sum(list(occurrences.values()))) + reset)
     # Combine the list of series together into a single DF
@@ -772,6 +794,13 @@ def write_dict_to_csv(data_dict):
 
 
 def validate_data_integrity(X, y, undersampled=False):
+    """
+
+    :param X:
+    :param y:
+    :param undersampled:
+    :return:
+    """
     print(blue + "\nData Integrity Check" + reset)
     if undersampled:
         #  We assume that the dataset.json contains identical data to X.pkl
@@ -877,6 +906,11 @@ def validate_data_integrity(X, y, undersampled=False):
 
 
 def delete_file(list_of_paths):
+    """
+
+    :param list_of_paths:
+    :return:
+    """
     for path in list_of_paths:
         if exists(path):
             remove(path)
@@ -899,9 +933,13 @@ def main():
     # Check if the user set up the block explorer correctly
     try:
         get(API_URL + "/networkinfo")  # For some reason the first request fails sometimes but the second request doesnt
-        assert get(API_URL + "/networkinfo").json()["data"] is not None and get(API_URL + "/networkinfo").json()["data"][NETWORK]
+        if NETWORK != "mainnet":
+            assert get(API_URL + "/networkinfo").json()["data"] is not None and get(API_URL + "/networkinfo").json()["data"][NETWORK]
+        else:
+            network_info = get(API_URL + "/networkinfo").json()["data"]
+            assert network_info is not None and network_info['testnet'] is False and network_info['stagenet'] is False
     except AssertionError as e:
-        print(red + "Error: The block explorer is not configured for " + NETWORK + "!" + reset)
+        print(red + "Error: The block explorer is not configured for " + NETWORK + "! Make sure you have monerod running." + reset)
         exit(1)
 
     #  Check if the postgres database is set up
@@ -937,6 +975,9 @@ def main():
     #  https://docs.python.org/3/library/multiprocessing.html
     #  https://stackoverflow.com/questions/6832554/multiprocessing-how-do-i-share-a-dict-among-multiple-processes
     with Manager() as manager:
+        global NUM_PROCESSES
+        if NUM_PROCESSES > 1:
+            NUM_PROCESSES = 1  # The Postgresql database is already multiprocessed
         #  Multiprocessing enriching each transaction
         with manager.Pool(processes=NUM_PROCESSES) as pool:
             for result in tqdm(pool.imap_unordered(func=enrich_data, iterable=list(data.items())), desc="(Multiprocessing) Enriching Transaction Data", total=len(data), colour='blue'):
@@ -979,7 +1020,7 @@ def main():
     with open("./Dataset_Files/y.pkl", "rb") as fp:
         y = pickle.load(fp)
 
-    X_Undersampled, y_Undersampled = undersample(X, y, predicting=False)
+    X_Undersampled, y_Undersampled = undersample(X, y, predicting=PREDICTING)
     #  Remove any columns which have the same value for every record ( not useful for ML )
     X_Undersampled.drop(list(X_Undersampled.columns[X_Undersampled.nunique() == 1]), axis=1, inplace=True)
     del X, y

@@ -1,8 +1,7 @@
-from xgboost import XGBClassifier
-import xgboost as xgb
 from sklearn.ensemble import GradientBoostingClassifier
-from DataScience.analysis import confusion_mtx
 import pickle
+from statistics import stdev
+from sklearn.metrics import f1_score
 
 #  Colors
 GREEN = '\033[92m'
@@ -11,84 +10,86 @@ END = '\033[0m'
 
 
 def gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Validation):
+    print("GRADIENT BOOSTED CLASSIFIER:")
+    NUM_ESTIMATORS = 10#100
+    LR = 0.1
+    out_of_sample_f1 = []
+    mainnet_f1 = []
+    #  Train the model 10 times to get the std dev
+    for i in range(10):
+        RANDOM_STATE += 1
+        NUM_ESTIMATORS +=1
+        model = GradientBoostingClassifier(n_estimators=NUM_ESTIMATORS, learning_rate=LR, random_state=RANDOM_STATE).fit(X_train, y_train)
+        model.fit(X_train, y_train)
 
-    # for n in [10,50,100,200,300,500]:
-    #     for lr in [.01, .1, .3, .5]:
-    #             model = GradientBoostingClassifier(n_estimators=n, learning_rate=lr, random_state=RANDOM_STATE).fit(X_train, y_train)
-    #             print("\n\n\nLR = ", lr, " Num Est = ", n)
-    #             in_sample_accuracy = model.score(X_train, y_train)
-    #             print("In Sample Accuracy:", in_sample_accuracy)
-    #             test_accuracy = model.score(X_test, y_test)
-    #             print("Test Accuracy:", test_accuracy)
-    # exit()
+        with open("./models/GBC/num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_i_" + str(i), "wb") as fp:
+            pickle.dump(model, fp)
 
-    model = GradientBoostingClassifier(n_estimators=200, learning_rate=0.1, random_state=RANDOM_STATE).fit(X_train, y_train)
-    model.fit(X_train, y_train)
+        in_sample_accuracy = model.score(X_train, y_train)
+        print("\nIn Sample Accuracy:", in_sample_accuracy)
+        test_accuracy = model.score(X_test, y_test)
+        print("Test Accuracy:", test_accuracy)
+        mainnet_accuracy = model.score(X_Validation, y_Validation)
+        print("Mainnet Validation Accuracy:", mainnet_accuracy)
 
-    with open("gradient_boosted.pkl", "wb") as fp:
-        pickle.dump(model, fp)
+        # Feature Importance
+        print("\n" + GREEN + "Gradient Boosted Classifier feature importance:" + END)
+        important_features = {}
+        for idx, importance in enumerate(model.feature_importances_):
+            if importance >= 0.005:
+                important_features[X_train.columns[idx]] = importance
+        sorted_feat = sorted(important_features.items(), key=lambda x: x[1], reverse=True)
+        for item in sorted_feat:
+            print(GREEN + "{:83s} {:.5f}".format(item[0], item[1]) + END)
 
-    with open("gradient_boosted.pkl", "rb") as fp:
-        model = pickle.load(fp)
-    in_sample_accuracy = model.score(X_train, y_train)
+        # Metrics
+        print("GBC Metrics ")
+        y_pred = model.predict(X_test)
+        weighted_f1 = f1_score(y_test, y_pred, average='weighted')
+        print('Weighted F1-score: {:.2f}'.format(weighted_f1))
+        out_of_sample_f1.append(weighted_f1)
 
-    out_sample_accuracy = model.score(X_Validation, y_Validation)
-    print("\nIn Sample Accuracy:", in_sample_accuracy)
-    test_accuracy = model.score(X_test, y_test)
-    print("Test Accuracy:", test_accuracy)
-    print("Mainnet Validation Accuracy:", out_sample_accuracy)
+        y_main_predict = model.predict(X_Validation)
+        weighted_f1_mainnet = f1_score(y_Validation, y_main_predict, average='weighted')
+        print('Mainnet Weighted F1-score: {:.2f}'.format(weighted_f1_mainnet))
+        mainnet_f1.append(weighted_f1_mainnet)
 
-    print("\n" + GREEN + "Gradient Boosted Classifier feature importance:" + END)
-    important_features = {}
-    for idx, importance in enumerate(model.feature_importances_):
-        if importance >= 0.005:
-            important_features[X_train.columns[idx]] = importance
+    # Stats
+    mean = sum(out_of_sample_f1) / len(out_of_sample_f1)
+    standard_dev = stdev(out_of_sample_f1)
 
-    sorted_feat = sorted(important_features.items(), key=lambda x: x[1], reverse=True)
-    for item in sorted_feat:
-        print(GREEN + "{:83s} {:.5f}".format(item[0], item[1]) + END)
+    main_mean = sum(mainnet_f1) / len(mainnet_f1)
+    main_standard_dev = stdev(mainnet_f1)
+    print(out_of_sample_f1)
+    print(mainnet_f1)
 
-    # Metrics
-    y_predicted = model.predict(X_test)
-    confusion_mtx(y_test, y_predicted)
-
-    y_main_predict = model.predict(X_Validation)
-    print(y_main_predict)
-    from collections import Counter
-    print(Counter(y_main_predict))
-    print(y_Validation)
-    print(Counter(y_Validation))
-    confusion_mtx(y_Validation, y_main_predict)
+    return mean*100, standard_dev*100, main_mean*100, main_standard_dev*100
 
 
-def xgboost_classifier(X_train, X_test, y_train, y_test, RANDOM_STATE):
-    # print("Normalizing data...")
-    # scaler = MinMaxScaler()
-    # X_train = scaler.fit_transform(X_train)
-    # X_test = scaler.transform(X_test)
-    X_train =  X_train.drop(['Tx_Version'], axis=1)
-    X_test =  X_test.drop(['Tx_Version'], axis=1)
-    #
-    # dtrain = xgb.DMatrix(X_train, label=y_train)
-    # dtest = xgb.DMatrix(X_test, label=y_test)
-    # param = {'nthread': 4}
-    # num_round = 10
-    # bst = xgb.train(param, dtrain, num_round)
-    #
-    # import numpy as np
-    #
-    # xgb.plot_importance(bst)
-    # xgb.plot_tree(bst, num_trees=2)
-    # ypred = np.rint(bst.predict(dtest))
-    # confusion_mtx(y_test, ypred)
+def gradient_boosted_hyper_param_tuning(X_train, X_test, y_train, y_test, RANDOM_STATE):
+    print("GRADIENT BOOSTED CLASSIFIER:")
+    NUM_ESTIMATORS = 10#100
+    LR = 0.1
+    out_of_sample_f1 = []
+    mainnet_f1 = []
+    #  Train the model 10 times to get the std dev
+    for estimator in (11,33,101):
+        for lr in (.25, 0.1, 0.05):
+            for depth in (3,11):
+                model = GradientBoostingClassifier(n_estimators=estimator, learning_rate=lr, random_state=RANDOM_STATE, max_depth=depth).fit(X_train, y_train)
+                model.fit(X_train, y_train)
 
-    xgb_clf = XGBClassifier(n_estimators=100, learning_rate=0.3, n_jobs=4, random_state=RANDOM_STATE)
-    xgb_clf.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)], eval_metric='logloss', verbose=True)
-    evals_result = xgb_clf.evals_result()
-    print(evals_result)
+                with open("./models/GBC/hyper_param_tuning/num_estimators_" + str(estimator) + "_lr_" + str(lr) + "_depth_" + str(depth), "wb") as fp:
+                    pickle.dump(model, fp)
+                print("num_estimators_" + str(estimator) + "_lr_" + str(lr) + "_depth_" + str(depth))
+                in_sample_accuracy = model.score(X_train, y_train)
+                print("\nIn Sample Accuracy:", in_sample_accuracy)
+                test_accuracy = model.score(X_test, y_test)
+                print("Test Accuracy:", test_accuracy)
 
-    score = xgb_clf.score(y_train, y_test)
-    predictions = xgb_clf.predict(X_test)
-    xgb.plot_importance(xgb_clf)
-
-    print(score)
+                # Metrics
+                print("GBC Metrics")
+                y_pred = model.predict(X_test)
+                weighted_f1 = f1_score(y_test, y_pred, average='weighted')
+                print('Weighted F1-score: {:.2f}'.format(weighted_f1))
+                out_of_sample_f1.append(weighted_f1)

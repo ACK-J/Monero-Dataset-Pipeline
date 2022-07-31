@@ -237,12 +237,6 @@ expect {
 expect eof
 EOL
 		chmod 777 ./$walletName-spend.exp
-		#  A one-liner that took forever to make because nested string interpolation is a pain
-		#  Open a new terminal tab -> Run the script to send a transaction of a random amount and random priority taken from real user distribution -> print time / transaction # -> sleep a random time selected from gamma distribution -> repeat
-		#  OLD VERSION
-    #  ${DESKTOP_ENV}-terminal --tab -x /bin/bash -c "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"
-    #  OLD VERSION 2
-    #  tmux new-window -t run-sh: "i=1; while : ;do cd ../../; priority=\$(python3 select_transaction_priority.py); cd -; ./${walletName}-spend.exp \$(python3 -c \"import random;print(format(random.uniform(0.0001, 0.000000000001), '.12f'))\") \$(echo \$priority); date; echo -en '\033[34mNumber of successful transactions: \033[0m'; echo \$i; ((i++)); python3 ../../Gamma.py; done"    #  NEW VERSION
     #  https://unix.stackexchange.com/questions/515935/tmux-how-to-specify-session-in-new-window
     echo -e '\033[34mSpawned new tmux window: \033[0m' "${walletAddr}"
     tmux new-window -t run-sh: "python3 ../../spawn.py ${walletName}"
