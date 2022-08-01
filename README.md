@@ -14,28 +14,40 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 ./run.sh
 ```
 
-# Stagenet Dataset
-| File | Size | Serialized | Description |
-|:---:|:---:|:---:|:-----|
-| `dataset.csv` | 1.4GB |  | The exhaustive dataset including all metadata for each transaction in csv format. |
-| `dataset.json` | 1.5GB | :white_check_mark: | The exhaustive dataset including all metadata for each transaction in json format. |
-| `X.csv` | 4.1GB |  | A modified version of dataset.csv with all features irrelevant to machine learning removed, in csv format. |
-| `X.pkl` | 6.5GB | :white_check_mark: | A modified version of dataset.json with all features irrelevant to machine learning removed, as a pickled pandas dataframe. |
-| `y.pkl` | 9.5MB | :white_check_mark: | A pickled list of python dictionaries which contain private information regarding the coresponding index of X.pkl. |
-| `X_Undersampled.csv` | 1.4GB |  | A modified version of X.csv with all data points shuffled and undersampled. |
-| `X_Undersampled.pkl` | 2.3GB | :white_check_mark: | A modified version of X.pkl with all data points shuffled and undersampled. |
-| `y_Undersampled.pkl` | 325kB | :white_check_mark: | A pickled list containing the labels coresponding to the index of X_Undersampled.pkl. |
+# Dataset Files
+| File | Stagenet Size | Testnet Size | Serialized | Description |
+|:---:|:---:|:---:|:---:|:-----|
+| `dataset.csv` | 1.4GB | 13.4GB |  | The exhaustive dataset including all metadata for each transaction in csv format. |
+| `dataset.json` | 1.5GB | N/A | :white_check_mark: | The exhaustive dataset including all metadata for each transaction in json format. |
+| `dataset.pkl` | N/A | 71.GB | :white_check_mark: | The exhaustive dataset including all metadata for each transaction in pickle format. |
+| `X.csv` | 4.1GB | 32.5GB |  | A modified version of dataset.csv with all features irrelevant to machine learning removed, in csv format. |
+| `X.pkl` | 6.5GB | 51.9GB | :white_check_mark: | A modified version of dataset.json with all features irrelevant to machine learning removed, as a pickled pandas dataframe. |
+| `y.pkl` | 9.5MB | 42.6MB | :white_check_mark: | A pickled list of python dictionaries which contain private information regarding the coresponding index of X.pkl. |
+| `X_Undersampled.csv` | 1.4GB | 75.5MB |  | A modified version of X.csv with all data points shuffled and undersampled. |
+| `X_Undersampled.pkl` | 2.3GB | 101MB | :white_check_mark: | A modified version of X.pkl with all data points shuffled and undersampled. |
+| `y_Undersampled.pkl` | 325kB | 312.1kB | :white_check_mark: | A pickled list containing the labels coresponding to the index of X_Undersampled.pkl. |
 
-## Dataset Download Link
+## Dataset Download Links
 `Stagenet_Dataset_7_2_2022.7z` 837 MB
 
-- Includes all files mentioned above in the Stagenet Dataset table, compressed using 7-zip
+- Includes all files mentioned above in the dataset table, compressed using 7-zip
+
+- SHA-256 Hash: `bf1b87f83a5c220263071e75c453d3886f9190856c71411be164f3328be38b79`
 
 - [https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view](https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view)
+
+`Testnet_Dataset_6_7_2022.7z` XXXX
+
+- Includes all files mentioned above in the dataset table, compressed using 7-zip
+
+- SHA-256 Hash: 
+
+- 
 
 ## How to load the dataset using Python and pickle
 ```python
 import pickle
+import json
 
 with open("./Dataset_Files/dataset.json", "r") as fp:
     data = json.load(fp)
