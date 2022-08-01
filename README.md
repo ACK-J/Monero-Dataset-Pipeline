@@ -36,15 +36,15 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 
 - [https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view](https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view)
 
-`Testnet_Dataset_6_7_2022.7z` XXXX
+`Testnet_Dataset_6_7_2022.7z` 4.7 GB
 
 - Includes all files mentioned above in the dataset table, compressed using 7-zip
 
-- SHA-256 Hash: 
+- SHA-256 Hash: `396c25083a8a08432df58c88cb94137850004bee3236b21cb628a8786fac15d3`
 
-- 
+- [https://drive.google.com/file/d/13Jw3J8yyKiZ9J5WsIRTUX0GDzbqBI-R5/view?usp=sharing](https://drive.google.com/file/d/13Jw3J8yyKiZ9J5WsIRTUX0GDzbqBI-R5/view?usp=sharing)
 
-## How to load the dataset using Python and pickle
+## How to load the dataset using Python and Pickle
 ```python
 import pickle
 import json
