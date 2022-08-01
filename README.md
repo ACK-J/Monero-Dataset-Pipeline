@@ -16,7 +16,7 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 
 # Stagenet Dataset
 | File | Size | Serialized | Description |
-| - | - | - | - |
+|:---:|:---:|:---:|:-----|
 | `dataset.csv` | 1.4GB |  | The exhaustive dataset including all metadata for each transaction in csv format. |
 | `dataset.json` | 1.5GB | :white_check_mark: | The exhaustive dataset including all metadata for each transaction in json format. |
 | `X.csv` | 4.1GB |  | A modified version of dataset.csv with all features irrelevant to machine learning removed, in csv format. |
