@@ -26,7 +26,14 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 | `X_Undersampled.pkl` | 2.3GB | :white_check_mark: | A modified version of X.pkl with all data points shuffled and undersampled. |
 | `y_Undersampled.pkl` | 325kB | :white_check_mark: | A pickled list containing the labels coresponding to the index of X_Undersampled.pkl. |
 
-# How to load the dataset using Python and pickle
+## Dataset Download Link
+`Stagenet_Dataset_7_2_2022.7z` 837 MB
+
+- Includes all files mentioned above in the Stagenet Dataset table, compressed using 7-zip
+
+- [https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view](https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view)
+
+## How to load the dataset using Python and pickle
 ```python
 import pickle
 
@@ -48,31 +55,33 @@ with open("./Dataset_Files/y_Undersampled.pkl", "rb") as fp:
 
 
 # Problem Solving and Useful Commands
+### If Collect.sh throws the error: `Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached`
 ```
-#  If collect.sh throws the error: Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached
 /home/user/monero/external/db_drivers/liblmdb/mdb_stat -rr ~/.bitmonero/testnet/lmdb/
 ```
-### Check progress of collect.sh While it is Running
-`find ./ -iname *.csv | cut -d '/' -f 2 | sort -u`
-### After Running collect.sh Gather the Ring Positions
-`find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'`
-
-
+### Check progress of collect.sh while its running
+```
+find ./ -iname *.csv | cut -d '/' -f 2 | sort -u
+```
+### After running collect.sh gather the ring positions
+```
+find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_size | cut -f 1 -d '/'
+```
 
 
 
 # Data Collection Pipeline Flowcharts
-## Run.sh
+### Run.sh
 <p align="center">
   <img src="https://user-images.githubusercontent.com/60232273/181663123-2d0fb9c9-8787-42c8-8ec7-24b45c201bc5.png"/>
 </p>
 
-## Collect.sh
+### Collect.sh
 <p align="center">
   <img src="https://user-images.githubusercontent.com/60232273/181663094-ff823283-cf74-420a-b5db-f517489b9f31.png"/>
 </p>
 
-## Create_Dataset.py
+### Create_Dataset.py
 <p align="center">
   <img src="https://user-images.githubusercontent.com/60232273/181663063-2c34dbc3-ce99-49c5-9807-b952c7f4fd68.png"/>
 </p>
