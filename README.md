@@ -8,9 +8,9 @@ sudo apt install vim git jq expect tmux parallel python3 python3-tk bc curl pyth
 pip3 install numpy
 cd ~ && wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2
 tar -xvf monero-linux-x64-v0.17.3.0.tar.bz2 && cd monero-x86_64-linux-gnu-v0.17.3.0 && sudo cp monero* /usr/bin/ && cd ..
-git clone git@github.com:ACK-J/Monero-Dataset-Pipeline.git && cd XMR-Transaction-Automation
+git clone git@github.com:ACK-J/Monero-Dataset-Pipeline.git && cd Monero-Dataset-Pipeline
 chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
-# Make sure global variables are set
+# Make sure run.sh global variables are set
 ./run.sh
 ```
 
@@ -65,6 +65,19 @@ with open("./Dataset_Files/y_Undersampled.pkl", "rb") as fp:
     y_Undersampled = pickle.load(fp)
 ```
 
+# Dataset Features for Machine and Deep Learning
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/60232273/182239111-7f50c0fb-45e8-459b-83fd-2be5cde655a5.png" width="688" height="351"/>
+</p>
+
+# Exhaustive Dataset Fields
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/60232273/182238296-a8e9b8a1-0a75-46e2-9541-437814ceb94d.png" width="641" height="491"/>
+</p>
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/60232273/182238433-26944246-b1fb-437c-bf57-45fd9f81bacb.png" width="641" height="324"/>
+</p>
+
 
 # Problem Solving and Useful Commands
 ### If Collect.sh throws the error: `Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached`
@@ -85,17 +98,17 @@ find . -name "*outgoing*" | xargs cat | cut -f 6 -d ',' | grep -v Ring_no/Ring_s
 # Data Collection Pipeline Flowcharts
 ### Run.sh
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/60232273/181663123-2d0fb9c9-8787-42c8-8ec7-24b45c201bc5.png"/>
+  <img src="https://user-images.githubusercontent.com/60232273/181663123-2d0fb9c9-8787-42c8-8ec7-24b45c201bc5.png" width="595" height="273"/>
 </p>
 
 ### Collect.sh
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/60232273/181663094-ff823283-cf74-420a-b5db-f517489b9f31.png"/>
+  <img src="https://user-images.githubusercontent.com/60232273/181663094-ff823283-cf74-420a-b5db-f517489b9f31.png" width="543" height="274"/>
 </p>
 
 ### Create_Dataset.py
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/60232273/181663063-2c34dbc3-ce99-49c5-9807-b952c7f4fd68.png"/>
+  <img src="https://user-images.githubusercontent.com/60232273/181663063-2c34dbc3-ce99-49c5-9807-b952c7f4fd68.png" width="614" height="240"/>
 </p>
 
 
