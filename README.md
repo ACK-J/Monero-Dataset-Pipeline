@@ -28,21 +28,40 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 | `y_Undersampled.pkl` | 325kB | 312.1kB | :white_check_mark: | A pickled list containing the labels coresponding to the index of X_Undersampled.pkl. |
 
 ## Dataset Download Links
-`Stagenet_Dataset_7_2_2022.7z` 837 MB
+
+
+
+### `Stagenet_Dataset_7_2_2022.7z` 837 MB
 
 - Includes all files mentioned above in the dataset table, compressed using 7-zip
+
+- Subsequent transactions were delayed with times sampled from the gamma distribution proposed by [Möser et al.](https://moneroresearch.info/index.php?action=resource_RESOURCEVIEW_CORE&id=15&browserTabID=)
+
+- The dataset was collected between April 19, 2022 and July 1, 2022 with 9,342 wallets. Totaling 248,723 ring signatures in 184,980 transactions. 
 
 - SHA-256 Hash: `bf1b87f83a5c220263071e75c453d3886f9190856c71411be164f3328be38b79`
 
-- [https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view](https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view)
+- Download Link: [https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view](https://drive.google.com/file/d/1cmkb_7_cVe_waLdVJ9USdK07SPWgdgva/view)
 
-`Testnet_Dataset_6_7_2022.7z` 4.7 GB
+
+
+
+
+### `Testnet_Dataset_6_7_2022.7z` 4.7 GB
 
 - Includes all files mentioned above in the dataset table, compressed using 7-zip
 
+- Subsequent transactions were delayed only by 20 minutes.
+
+- The dataset was collected between January 20, 2022 and February 23, 2022 with 900 wallets. Totaling 1,333,756 ring signatures in 763,314 transactions.
+
 - SHA-256 Hash: `396c25083a8a08432df58c88cb94137850004bee3236b21cb628a8786fac15d3`
 
-- [https://drive.google.com/file/d/13Jw3J8yyKiZ9J5WsIRTUX0GDzbqBI-R5/view?usp=sharing](https://drive.google.com/file/d/13Jw3J8yyKiZ9J5WsIRTUX0GDzbqBI-R5/view?usp=sharing)
+- Download Link: [https://drive.google.com/file/d/13Jw3J8yyKiZ9J5WsIRTUX0GDzbqBI-R5/view?usp=sharing](https://drive.google.com/file/d/13Jw3J8yyKiZ9J5WsIRTUX0GDzbqBI-R5/view?usp=sharing)
+
+
+
+
 
 ## How to load the dataset using Python and Pickle
 ```python
