@@ -59,7 +59,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
     out_of_sample_f1 = []
     mainnet_f1 = []
 
-    EPOCHS = 10#100
+    EPOCHS = 100
     BATCH_SIZE = 128
 
     y_test_copy = y_test.copy()
@@ -83,7 +83,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
         model.add(Dense(32, activation='relu'))
         model.add(Dropout(.1))
         model.add(Dense(64, activation='relu'))
-        #model.add(Dense(128, activation='relu'))
+        model.add(Dense(128, activation='relu'))
         model.add(Dense(64, activation='relu'))
         model.add(Dropout(.3))
         model.add(Dense(32, activation='relu'))

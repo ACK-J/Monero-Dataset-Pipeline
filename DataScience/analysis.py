@@ -35,7 +35,7 @@ def load_data(TEST_SIZE, X_FILE, Y_FILE):
 
     if TEST_SIZE != 0:
         #  Split the data up traditionally into 80% training and 20% training
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, shuffle=True)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, shuffle=False)
         print("Dataset split into training and testing.\n")
         return X_train, X_test, y_train, y_test
     else:
@@ -52,6 +52,7 @@ def confusion_mtx(y_test, y_pred):
     plt.xlabel('Predicted')
     plt.ylabel('Truth')
     plt.show()
+    plt.imsave
 
     cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
     #  Heat map
@@ -87,43 +88,45 @@ def Diff(li1, li2):
 
 
 def main():
-    with open("/media/sf_Downloads/dataset.json", "r") as fp:
-        import json
-        data = json.load(fp)
     # Preliminary Testnet Dataset
     testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test = load_data(0.2, "../TestnetDataset/X_Undersampled.pkl", "../TestnetDataset/y_Undersampled.pkl")
     testnet_X_val_mainnet, _, testnet_y_val_mainnet, _ = load_data(0, "../MainnetDatasetTestnet/X_Undersampled.pkl", "../MainnetDatasetTestnet/y_Undersampled.pkl")
 
     # Stagenet Dataset
     X_train, X_test, y_train, y_test = load_data(0.2, "../StagenetDataset/X_Undersampled.pkl", "../StagenetDataset/y_Undersampled.pkl")
-    # X_val_mainnet, _, y_val_mainnet, _ = load_data(0, "../MainnetDatasetStagenet/X_Undersampled.pkl", "../MainnetDatasetStagenet/y_Undersampled.pkl")
-    # # Fill in any missing columns for the mainnet stagenet dataset
-    # missing_df_cols = Diff(X_test.columns.to_list(), X_val_mainnet.columns.to_list())
-    # X_val_mainnet = X_val_mainnet.reindex(columns=X_val_mainnet.columns.tolist() + missing_df_cols, fill_value=-1)
+    X_val_mainnet, _, y_val_mainnet, _ = load_data(0, "../MainnetDatasetStagenet/X_Undersampled.pkl", "../MainnetDatasetStagenet/y_Undersampled.pkl")
+    # Fill in any missing columns for the mainnet stagenet dataset
+    missing_df_cols = Diff(X_test.columns.to_list(), X_val_mainnet.columns.to_list())
+    X_val_mainnet = X_val_mainnet.reindex(columns=X_val_mainnet.columns.tolist() + missing_df_cols, fill_value=-1)
 
-    # GradientBoostedClassifier.gradient_boosted_hyper_param_tuning(X_train, X_test, y_train, y_test, RANDOM_STATE)
-    # exit()
+    # print("STAGENET GBC TRAINING")
+    # print(GradientBoostedClassifier.gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_val_mainnet, y_val_mainnet))
+    # print("\n\n\n\nTESTNET GBC TRAINING")
+    # print(GradientBoostedClassifier.gradient_boosted(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, RANDOM_STATE, testnet_X_val_mainnet, testnet_y_val_mainnet, stagenet=False))
+    # # GradientBoostedClassifier.gradient_boosted_hyper_param_tuning(X_train, X_test, y_train, y_test, RANDOM_STATE)
+    RandomForest.random_forest_hyperparam_tune(testnet_X_train, testnet_y_train, testnet_X_val_mainnet, testnet_y_val_mainnet)
+    exit()
 
     # Stagenet
-    GBC_stagenet_mean, GBC_stagenet_standard_dev, GBC_stagenet_main_mean, GBC_stagenet_main_standard_dev = GradientBoostedClassifier.gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_val_mainnet, y_val_mainnet)
-    NN_stagenet_mean, NN_stagenet_standard_dev, NN_stagenet_main_mean, NN_stagenet_main_standard_dev = NeuralNetwork.MLP(X_train, X_test, y_train, y_test, X_val_mainnet, y_val_mainnet)
-    RF_stagenet_mean, RF_stagenet_standard_dev, RF_stagenet_main_mean, RF_stagenet_main_standard_dev = RandomForest.random_forest(X_train, X_test, y_train, y_test, N_ESTIMATORS, MAX_DEPTH, RANDOM_STATE, X_val_mainnet, y_val_mainnet)
+    # GBC_stagenet_mean, GBC_stagenet_standard_dev, GBC_stagenet_main_mean, GBC_stagenet_main_standard_dev = GradientBoostedClassifier.gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_val_mainnet, y_val_mainnet)
+    # NN_stagenet_mean, NN_stagenet_standard_dev, NN_stagenet_main_mean, NN_stagenet_main_standard_dev = NeuralNetwork.MLP(X_train, X_test, y_train, y_test, X_val_mainnet, y_val_mainnet)
+    # RF_stagenet_mean, RF_stagenet_standard_dev, RF_stagenet_main_mean, RF_stagenet_main_standard_dev = RandomForest.random_forest(X_train, X_test, y_train, y_test, N_ESTIMATORS, MAX_DEPTH, RANDOM_STATE, X_val_mainnet, y_val_mainnet)
 
     # Preliminary Testnet
-    GBC_testnet_mean, GBC_testnet_standard_dev, GBC_testnet_main_mean, GBC_testnet_main_standard_dev = GradientBoostedClassifier.gradient_boosted(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, RANDOM_STATE, testnet_X_val_mainnet, testnet_y_val_mainnet)
-    NN_testnet_mean, NN_testnet_standard_dev, NN_testnet_main_mean, NN_testnet_main_standard_dev = NeuralNetwork.MLP(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, testnet_X_val_mainnet, testnet_y_val_mainnet)
-    RF_testnet_mean, RF_testnet_standard_dev, RF_testnet_main_mean, RF_testnet_main_standard_dev = RandomForest.random_forest(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, N_ESTIMATORS, MAX_DEPTH, RANDOM_STATE, testnet_X_val_mainnet, testnet_y_val_mainnet)
+    # GBC_testnet_mean, GBC_testnet_standard_dev, GBC_testnet_main_mean, GBC_testnet_main_standard_dev = GradientBoostedClassifier.gradient_boosted(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, RANDOM_STATE, testnet_X_val_mainnet, testnet_y_val_mainnet)
+    # NN_testnet_mean, NN_testnet_standard_dev, NN_testnet_main_mean, NN_testnet_main_standard_dev = NeuralNetwork.MLP(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, testnet_X_val_mainnet, testnet_y_val_mainnet)
+    RF_testnet_mean, RF_testnet_standard_dev, RF_testnet_main_mean, RF_testnet_main_standard_dev = RandomForest.random_forest(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, N_ESTIMATORS, MAX_DEPTH, RANDOM_STATE, testnet_X_val_mainnet, testnet_y_val_mainnet, stagenet=False)
 
     # Print Results
-    from prettytable import PrettyTable
-    table = [['Dataset Name', 'GCB Accuracy', 'GCB Accuracy std', 'Neural Network Accuracy', 'Neural Network Accuracy std', 'Random Forest Accuracy',
-              'Random Forest Accuracy std', 'GCB Mainnet Accuracy', 'GCB Mainnet Accuracy std', 'Neural Network Mainnet Accuracy',
-              'Neural Network Mainnet Accuracy std', 'Random Forest Mainnet Accuracy', 'Random Forest Mainnet Accuracy std'],
-             ["Stagenet", GBC_stagenet_mean, GBC_stagenet_standard_dev, NN_stagenet_mean, NN_stagenet_standard_dev, RF_stagenet_mean, RF_stagenet_standard_dev, GBC_stagenet_main_mean, GBC_stagenet_main_standard_dev, NN_stagenet_main_mean, NN_stagenet_main_standard_dev, RF_stagenet_main_mean, RF_stagenet_main_standard_dev],
-             ["Testnet", GBC_testnet_mean, GBC_testnet_standard_dev, NN_testnet_mean, NN_testnet_standard_dev, RF_testnet_mean, RF_testnet_standard_dev, GBC_testnet_main_mean, GBC_testnet_main_standard_dev, NN_testnet_main_mean, NN_testnet_main_standard_dev, RF_testnet_main_mean, RF_testnet_main_standard_dev]]
-    tab = PrettyTable(table[0])
-    tab.add_rows(table[1:])
-    print(tab)
+    # from prettytable import PrettyTable
+    # table = [['Dataset Name', 'GCB Accuracy', 'GCB Accuracy std', 'Neural Network Accuracy', 'Neural Network Accuracy std', 'Random Forest Accuracy',
+    #           'Random Forest Accuracy std', 'GCB Mainnet Accuracy', 'GCB Mainnet Accuracy std', 'Neural Network Mainnet Accuracy',
+    #           'Neural Network Mainnet Accuracy std', 'Random Forest Mainnet Accuracy', 'Random Forest Mainnet Accuracy std'],
+    #          ["Stagenet", GBC_stagenet_mean, GBC_stagenet_standard_dev, NN_stagenet_mean, NN_stagenet_standard_dev, RF_stagenet_mean, RF_stagenet_standard_dev, GBC_stagenet_main_mean, GBC_stagenet_main_standard_dev, NN_stagenet_main_mean, NN_stagenet_main_standard_dev, RF_stagenet_main_mean, RF_stagenet_main_standard_dev],
+    #          ["Testnet", GBC_testnet_mean, GBC_testnet_standard_dev, NN_testnet_mean, NN_testnet_standard_dev, RF_testnet_mean, RF_testnet_standard_dev, GBC_testnet_main_mean, GBC_testnet_main_standard_dev, NN_testnet_main_mean, NN_testnet_main_standard_dev, RF_testnet_main_mean, RF_testnet_main_standard_dev]]
+    # tab = PrettyTable(table[0])
+    # tab.add_rows(table[1:])
+    # print(tab)
 
 
 if __name__ == '__main__':

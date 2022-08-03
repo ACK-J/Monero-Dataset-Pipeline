@@ -552,7 +552,7 @@ def create_feature_set(database):
     #feature_set = concat(Valid_Transactions, axis=0).fillna(-1)
 
     #  Shuffle the data
-    feature_set_df, labels = shuffle(feature_set_df, labels, random_state=101)
+    feature_set_df, labels = shuffle(feature_set_df, labels, random_state=69)
     #  Reset the indexing after the shuffles
     feature_set_df.reset_index(drop=True, inplace=True)
     return feature_set_df, labels
