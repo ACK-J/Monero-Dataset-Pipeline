@@ -2,6 +2,9 @@ import numpy as np
 import pickle
 from sklearn.metrics import f1_score
 from statistics import stdev
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sn
 
 
 def confusion_mtx(y_test, y_pred):
@@ -48,9 +51,9 @@ def confusion_mtx(y_test, y_pred):
     print(classification_report(y_test, y_pred))
 
 
-def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
+def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=True):
     from keras.models import Sequential
-    from keras.layers import Dense, Activation, Dropout
+    from keras.layers import Dense, Activation, Dropout, BatchNormalization
     from sklearn.preprocessing import StandardScaler
     from keras.utils import np_utils
     from sklearn.model_selection import cross_val_score
@@ -59,20 +62,30 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
     out_of_sample_f1 = []
     mainnet_f1 = []
 
-    EPOCHS = 100
-    BATCH_SIZE = 128
+    EPOCHS = 30
+    BATCH_SIZE = 256
 
     y_test_copy = y_test.copy()
     y_test = np.asarray(y_test)
-    y_train = np.asarray(y_train)
     y_test = np_utils.to_categorical(y_test)
-    y_train = np_utils.to_categorical(y_train)
     y_test = np.delete(y_test, 0, 1)
+
+    y_train = np.asarray(y_train)
+    y_train = np_utils.to_categorical(y_train)
     y_train = np.delete(y_train, 0, 1)
+
+    y_val_copy = y_Validation.copy()
+    y_val = np.asarray(y_Validation)
+    y_val = np_utils.to_categorical(y_val)
+    y_val = np.delete(y_val, 0, 1)
+
 
     scaler = StandardScaler().fit(X_train)
     X_train = scaler.transform(X_train)
+
+    scaler = StandardScaler().fit(X_test)
     X_test = scaler.transform(X_test)
+
     scaler = StandardScaler().fit(X_Validation)
     X_Validation = scaler.transform(X_Validation)
 
@@ -81,23 +94,42 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
         model = Sequential()
         model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
         model.add(Dense(32, activation='relu'))
-        model.add(Dropout(.1))
         model.add(Dense(64, activation='relu'))
+        model.add(Dense(128, activation='relu'))
+        model.add(Dropout(.1))
+        model.add(Dense(256, activation='relu'))
         model.add(Dense(128, activation='relu'))
         model.add(Dense(64, activation='relu'))
         model.add(Dropout(.3))
         model.add(Dense(32, activation='relu'))
         model.add(Dropout(.2))
         model.add(Dense(11))
+        model.add(BatchNormalization())
         model.add(Activation('softmax'))
         model.summary()
         # https://towardsdatascience.com/visualizing-keras-models-4d0063c8805e
         # visualizer(model, format='png', view=True)
 
+        class_weight = {0: 1.,
+                        1: 50.,
+                        2: 50.,
+                        3: 50.,
+                        4: 50.,
+                        5: 50.,
+                        6: 50.,
+                        7: 50.,
+                        8: 50.,
+                        9: 50.,
+                        10: 1.}
+
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE)
-        with open("neural_network.pkl", "wb") as fp:
-            pickle.dump(model, fp)
+        model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=(X_Validation, y_val), class_weight=class_weight)
+        if stagenet:
+            with open("./models/NN/stagenet/epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + ".pkl", "wb") as fp:
+                pickle.dump(model, fp)
+        else:
+            with open("./models/NN/testnet/epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + ".pkl", "wb") as fp:
+                pickle.dump(model, fp)
         score = model.evaluate(X_test, y_test, verbose=1)
         print(score[1])
 
@@ -116,9 +148,27 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation):
 
         y_main_predict = model.predict(X_Validation)
         y_main_predict = np.argmax(y_main_predict, axis=1).tolist()
-        weighted_f1_mainnet = f1_score(y_Validation, y_main_predict, average='weighted')
+        weighted_f1_mainnet = f1_score(y_val_copy, y_main_predict, average='weighted')
         print('Mainnet Weighted F1-score: {:.2f}'.format(weighted_f1_mainnet))
         mainnet_f1.append(weighted_f1_mainnet)
+
+        if stagenet:
+            cm = confusion_matrix(y_test, y_pred)
+            #  Heat map
+            plt.figure(figsize=(10, 7))
+            sn.heatmap(cm, annot=True)
+            plt.xlabel('Predicted')
+            plt.ylabel('Truth')
+            plt.savefig("./models/GBC/stagenet/CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(weighted_f1_mainnet) + ".png")
+        else:
+            cm = confusion_matrix(y_test, y_pred)
+            #  Heat map
+            plt.figure(figsize=(10, 7))
+            sn.heatmap(cm, annot=True)
+            plt.xlabel('Predicted')
+            plt.ylabel('Truth')
+            plt.savefig("./models/GBC/testnet/CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(weighted_f1_mainnet) + ".png")
+
 
 
     # kfold = KFold(n_splits=10, shuffle=True)

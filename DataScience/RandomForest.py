@@ -15,9 +15,11 @@ END = '\033[0m'
 def random_forest(X_train, X_test, y_train, y_test, N_ESTIMATORS, MAX_DEPTH, RANDOM_STATE, X_Validation, y_Validation, stagenet=True):
     out_of_sample_f1 = []
     mainnet_f1 = []
+    LR = .25
+    N_ESTIMATORS = 700
     for i in range(10):
         RANDOM_STATE += 1
-        model = AdaBoostClassifier(n_estimators=N_ESTIMATORS, random_state=RANDOM_STATE)
+        model = AdaBoostClassifier(n_estimators=N_ESTIMATORS, random_state=RANDOM_STATE, learning_rate=LR)
         #  Train the model
         in_sample_accuracy = model.fit(X_train, y_train).score(X_train, y_train)
 
@@ -61,7 +63,7 @@ def random_forest(X_train, X_test, y_train, y_test, N_ESTIMATORS, MAX_DEPTH, RAN
             sn.heatmap(cm, annot=True)
             plt.xlabel('Predicted')
             plt.ylabel('Truth')
-            plt.savefig("./models/RF/stagenet/CM_num_estimators_" + str(N_ESTIMATORS) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + ".png")
+            plt.savefig("./models/RF/stagenet/CM_num_estimators_" + str(N_ESTIMATORS) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1_mainnet) + ".png")
         else:
             cm = confusion_matrix(y_Validation, y_main_predict)
             #  Heat map
@@ -69,7 +71,7 @@ def random_forest(X_train, X_test, y_train, y_test, N_ESTIMATORS, MAX_DEPTH, RAN
             sn.heatmap(cm, annot=True)
             plt.xlabel('Predicted')
             plt.ylabel('Truth')
-            plt.savefig("./models/RF/testnet/CM_num_estimators_" + str(N_ESTIMATORS) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + ".png")
+            plt.savefig("./models/RF/testnet/CM_num_estimators_" + str(N_ESTIMATORS) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1_mainnet) + ".png")
 
 
     # Stats
@@ -115,6 +117,7 @@ def random_forest_hyperparam_tune(X, y, testnet_X_val_mainnet, testnet_y_val_mai
     import time  # Just to compare fit times
     start = time.time()
     tune_search.fit(X, y)
+    print("BEST PARAMS: " + str(tune_search.best_params_))
     end = time.time()
     print("Tune Fit Time:", end - start)
     pred = tune_search.predict(testnet_X_val_mainnet)

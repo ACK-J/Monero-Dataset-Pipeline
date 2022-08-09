@@ -14,9 +14,9 @@ END = '\033[0m'
 
 def gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Validation, stagenet=True):
     print("GRADIENT BOOSTED CLASSIFIER:")
-    NUM_ESTIMATORS = 14#100
-    LR = 0.25
-    depth = 11
+    NUM_ESTIMATORS = 100
+    LR = 0.1
+    depth = 5
     out_of_sample_f1 = []
     mainnet_f1 = []
     #  Train the model 10 times to get the std dev
@@ -114,7 +114,7 @@ def gradient_boosted_hyper_param_tuning(X_train, X_test, y_train, y_test, RANDOM
     out_of_sample_f1 = []
     mainnet_f1 = []
     #  Train the model 10 times to get the std dev
-    for estimator in (11,33,101):
+    for estimator in (11, 33, 101):
         for lr in (.25, 0.1, 0.05):
             for depth in (3,11):
                 model = GradientBoostingClassifier(n_estimators=estimator, learning_rate=lr, random_state=RANDOM_STATE, max_depth=depth).fit(X_train, y_train)

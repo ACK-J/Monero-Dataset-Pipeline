@@ -26,9 +26,9 @@ Usage: ./create_dataset.py < Wallets Directory Path >
 Date: 7/8/2022
 Author: ACK-J
 
-Warning: DO NOT run this with a remote node, there are a lot of blockchain lookups and it will be slow!
+Warning: DO NOT run this processing with a remote node, there are a lot of blockchain lookups and it will be slow!
 Warning: Run your own monerod process and block explorer, it is very easy!
-To run your own block explorer:
+To run your own node and block explorer:
     monerod --stagenet                        https://github.com/monero-project/monero
     xmrblocks --stagenet --enable-json-api    https://github.com/moneroexamples/onion-monero-blockchain-explorer
     
