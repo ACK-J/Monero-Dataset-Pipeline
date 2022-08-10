@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import seaborn as sn
 import numpy as np
 import pickle
-from DataScience import NeuralNetwork
-from DataScience import GradientBoostedClassifier
-from DataScience import RandomForest
+import NeuralNetwork
+import GradientBoostedClassifier
+import RandomForest
 """
 
 """
@@ -113,9 +113,9 @@ def main():
     RF_stagenet_mean, RF_stagenet_standard_dev, RF_stagenet_main_mean, RF_stagenet_main_standard_dev = RandomForest.random_forest(X_train, X_test, y_train, y_test, N_ESTIMATORS, MAX_DEPTH, RANDOM_STATE, X_val_mainnet, y_val_mainnet)
 
     # Preliminary Testnet
-    GBC_testnet_mean, GBC_testnet_standard_dev, GBC_testnet_main_mean, GBC_testnet_main_standard_dev = GradientBoostedClassifier.gradient_boosted(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, RANDOM_STATE, testnet_X_val_mainnet, testnet_y_val_mainnet, stagenet=False)
+    GBC_testnet_mean, GBC_testnet_standard_dev, GBC_testnet_main_mean, GBC_testnet_main_standard_dev = GradientBoostedClassifier.gradient_boosted(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, RANDOM_STATE, testnet_X_val_mainnet, testnet_y_val_mainnet, stagenet_val=False)
     NN_testnet_mean, NN_testnet_standard_dev, NN_testnet_main_mean, NN_testnet_main_standard_dev = NeuralNetwork.MLP(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, testnet_X_val_mainnet, testnet_y_val_mainnet, stagenet=False)
-    RF_testnet_mean, RF_testnet_standard_dev, RF_testnet_main_mean, RF_testnet_main_standard_dev = RandomForest.random_forest(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, N_ESTIMATORS, MAX_DEPTH, RANDOM_STATE, testnet_X_val_mainnet, testnet_y_val_mainnet, stagenet=False)
+    RF_testnet_mean, RF_testnet_standard_dev, RF_testnet_main_mean, RF_testnet_main_standard_dev = RandomForest.random_forest(testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test, N_ESTIMATORS, MAX_DEPTH, RANDOM_STATE, testnet_X_val_mainnet, testnet_y_val_mainnet, stagenet_val=False)
 
     # Print Results
     from prettytable import PrettyTable

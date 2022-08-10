@@ -4,96 +4,123 @@ from statistics import stdev
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sn
+from tqdm import tqdm
+from multiprocessing import cpu_count, Manager
 from sklearn.metrics import f1_score
+from itertools import repeat
 
 #  Colors
 GREEN = '\033[92m'
 RED = '\033[91m'
 END = '\033[0m'
 
+NUM_ESTIMATORS = 100
+LR = 0.1
+depth = 5
 
-def gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Validation, stagenet=True):
+stagenet=True
+
+
+def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Validation):
+    global stagenet
+    model = GradientBoostingClassifier(n_estimators=NUM_ESTIMATORS, learning_rate=LR, random_state=RANDOM_STATE, max_depth=depth).fit(X_train, y_train)
+    model.fit(X_train, y_train)
+
+    if stagenet:
+        with open("./models/GBC/stagenet/num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".pkl", "wb") as fp:
+            pickle.dump(model, fp)
+    else:
+        with open("./models/GBC/testnet/num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".pkl", "wb") as fp:
+            pickle.dump(model, fp)
+    print("num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_depth_" + str(depth) + "_RANDOM_" + str(RANDOM_STATE))
+    in_sample_accuracy = model.score(X_train, y_train)
+    print("\nIn Sample Accuracy:", in_sample_accuracy)
+    test_accuracy = model.score(X_test, y_test)
+    print("Test Accuracy:", test_accuracy)
+    mainnet_accuracy = model.score(X_Validation, y_Validation)
+    print("Mainnet Validation Accuracy:", mainnet_accuracy)
+
+    # Feature Importance
+    print("\n" + GREEN + "Gradient Boosted Classifier feature importance:" + END)
+    important_features = {}
+    for idx, importance in enumerate(model.feature_importances_):
+        if importance >= 0.005:
+            important_features[X_train.columns[idx]] = importance
+    sorted_feat = sorted(important_features.items(), key=lambda x: x[1], reverse=True)
+    for item in sorted_feat:
+        print(GREEN + "{:83s} {:.5f}".format(item[0], item[1]) + END)
+
+    # Metrics
+    print("GBC Metrics ")
+    y_pred = model.predict(X_test)
+    weighted_f1 = f1_score(y_test, y_pred, average='weighted')
+    print('Weighted F1-score: {:.2f}'.format(weighted_f1))
+    #out_of_sample_f1.append(weighted_f1)
+
+    if stagenet:
+        cm = confusion_matrix(y_test, y_pred)
+        #  Heat map
+        plt.figure(figsize=(10, 7))
+        sn.heatmap(cm, annot=True)
+        plt.xlabel('Predicted')
+        plt.ylabel('Truth')
+        plt.savefig("./models/GBC/stagenet/CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".png")
+    else:
+        cm = confusion_matrix(y_test, y_pred)
+        #  Heat map
+        plt.figure(figsize=(10, 7))
+        sn.heatmap(cm, annot=True)
+        plt.xlabel('Predicted')
+        plt.ylabel('Truth')
+        plt.savefig("./models/GBC/testnet/CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".png")
+
+    y_main_predict = model.predict(X_Validation)
+    weighted_f1_mainnet = f1_score(y_Validation, y_main_predict, average='weighted')
+    print('Mainnet Weighted F1-score: {:.2f}'.format(weighted_f1_mainnet))
+    #mainnet_f1.append(weighted_f1_mainnet)
+
+    if stagenet:
+        cm = confusion_matrix(y_Validation, y_main_predict)
+        #  Heat map
+        plt.figure(figsize=(10, 7))
+        sn.heatmap(cm, annot=True)
+        plt.xlabel('Predicted')
+        plt.ylabel('Truth')
+        plt.savefig("./models/GBC/stagenet/Main_CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".png")
+    else:
+        cm = confusion_matrix(y_Validation, y_main_predict)
+        #  Heat map
+        plt.figure(figsize=(10, 7))
+        sn.heatmap(cm, annot=True)
+        plt.xlabel('Predicted')
+        plt.ylabel('Truth')
+        plt.savefig("./models/GBC/testnet/Main_CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".png")
+    return weighted_f1, weighted_f1_mainnet
+
+
+def run_model_wrapper(data):
+    return run_model(*data)
+
+
+def gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Validation, stagenet_val=True):
+    global stagenet
+    stagenet = stagenet_val
     print("GRADIENT BOOSTED CLASSIFIER:")
-    NUM_ESTIMATORS = 100
-    LR = 0.1
-    depth = 5
+
     out_of_sample_f1 = []
     mainnet_f1 = []
-    #  Train the model 10 times to get the std dev
-    for i in range(10):
-        RANDOM_STATE += 1
-        model = GradientBoostingClassifier(n_estimators=NUM_ESTIMATORS, learning_rate=LR, random_state=RANDOM_STATE, max_depth=depth).fit(X_train, y_train)
-        model.fit(X_train, y_train)
 
-        if stagenet:
-            with open("./models/GBC/stagenet/num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + ".pkl", "wb") as fp:
-                pickle.dump(model, fp)
-        else:
-            with open("./models/GBC/testnet/num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + ".pkl", "wb") as fp:
-                pickle.dump(model, fp)
-        print("num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_depth_" + str(depth) + "_RANDOM_" + str(RANDOM_STATE))
-        in_sample_accuracy = model.score(X_train, y_train)
-        print("\nIn Sample Accuracy:", in_sample_accuracy)
-        test_accuracy = model.score(X_test, y_test)
-        print("Test Accuracy:", test_accuracy)
-        mainnet_accuracy = model.score(X_Validation, y_Validation)
-        print("Mainnet Validation Accuracy:", mainnet_accuracy)
+    NUM_PROCESSES = cpu_count()
 
-        # Feature Importance
-        print("\n" + GREEN + "Gradient Boosted Classifier feature importance:" + END)
-        important_features = {}
-        for idx, importance in enumerate(model.feature_importances_):
-            if importance >= 0.005:
-                important_features[X_train.columns[idx]] = importance
-        sorted_feat = sorted(important_features.items(), key=lambda x: x[1], reverse=True)
-        for item in sorted_feat:
-            print(GREEN + "{:83s} {:.5f}".format(item[0], item[1]) + END)
+    if NUM_PROCESSES > 10:
+        NUM_PROCESSES = 10
 
-        # Metrics
-        print("GBC Metrics ")
-        y_pred = model.predict(X_test)
-        weighted_f1 = f1_score(y_test, y_pred, average='weighted')
-        print('Weighted F1-score: {:.2f}'.format(weighted_f1))
-        out_of_sample_f1.append(weighted_f1)
-
-        if stagenet:
-            cm = confusion_matrix(y_test, y_pred)
-            #  Heat map
-            plt.figure(figsize=(10, 7))
-            sn.heatmap(cm, annot=True)
-            plt.xlabel('Predicted')
-            plt.ylabel('Truth')
-            plt.savefig("./models/GBC/stagenet/CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + ".png")
-        else:
-            cm = confusion_matrix(y_test, y_pred)
-            #  Heat map
-            plt.figure(figsize=(10, 7))
-            sn.heatmap(cm, annot=True)
-            plt.xlabel('Predicted')
-            plt.ylabel('Truth')
-            plt.savefig("./models/GBC/testnet/CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + ".png")
-
-        y_main_predict = model.predict(X_Validation)
-        weighted_f1_mainnet = f1_score(y_Validation, y_main_predict, average='weighted')
-        print('Mainnet Weighted F1-score: {:.2f}'.format(weighted_f1_mainnet))
-        mainnet_f1.append(weighted_f1_mainnet)
-
-        if stagenet:
-            cm = confusion_matrix(y_Validation, y_main_predict)
-            #  Heat map
-            plt.figure(figsize=(10, 7))
-            sn.heatmap(cm, annot=True)
-            plt.xlabel('Predicted')
-            plt.ylabel('Truth')
-            plt.savefig("./models/GBC/stagenet/Main_CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + ".png")
-        else:
-            cm = confusion_matrix(y_Validation, y_main_predict)
-            #  Heat map
-            plt.figure(figsize=(10, 7))
-            sn.heatmap(cm, annot=True)
-            plt.xlabel('Predicted')
-            plt.ylabel('Truth')
-            plt.savefig("./models/GBC/testnet/Main_CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_i_" + str(i) + "_seed_" + str(RANDOM_STATE) + ".png")
+    with Manager() as manager:
+        with manager.Pool(processes=NUM_PROCESSES) as pool:
+            for returned_data in tqdm(pool.imap_unordered(func=run_model_wrapper, iterable=zip(repeat(X_train,10), repeat(X_test,10), repeat(y_train,10), repeat(y_test,10), list(range(10)), repeat(X_Validation,10), repeat(y_Validation,10))), desc="(Multiprocessing) Training GBC", total=10, colour='blue'):
+                weighted_f1, weighted_f1_mainnet = returned_data
+                out_of_sample_f1.append(weighted_f1)
+                mainnet_f1.append(weighted_f1_mainnet)
 
     # Stats
     mean = sum(out_of_sample_f1) / len(out_of_sample_f1)
@@ -109,7 +136,7 @@ def gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validatio
 
 def gradient_boosted_hyper_param_tuning(X_train, X_test, y_train, y_test, RANDOM_STATE):
     print("GRADIENT BOOSTED CLASSIFIER:")
-    NUM_ESTIMATORS = 10#100
+    NUM_ESTIMATORS = 10
     LR = 0.1
     out_of_sample_f1 = []
     mainnet_f1 = []
