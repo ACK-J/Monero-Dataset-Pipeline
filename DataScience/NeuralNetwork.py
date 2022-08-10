@@ -89,7 +89,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
     scaler = StandardScaler().fit(X_Validation)
     X_Validation = scaler.transform(X_Validation)
 
-    for i in range(10):
+    for i in range(5):
         from keras_visualizer import visualizer
         model = Sequential()
         model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
@@ -153,7 +153,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
         mainnet_f1.append(weighted_f1_mainnet)
 
         if stagenet:
-            cm = confusion_matrix(y_test, y_pred)
+            cm = confusion_matrix(y_test_copy, y_pred)
             #  Heat map
             plt.figure(figsize=(10, 7))
             sn.heatmap(cm, annot=True)
@@ -161,7 +161,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
             plt.ylabel('Truth')
             plt.savefig("./models/GBC/stagenet/CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(weighted_f1_mainnet) + ".png")
         else:
-            cm = confusion_matrix(y_test, y_pred)
+            cm = confusion_matrix(y_test_copy, y_pred)
             #  Heat map
             plt.figure(figsize=(10, 7))
             sn.heatmap(cm, annot=True)

@@ -19,7 +19,7 @@ LR = .25
 N_ESTIMATORS = 700
 
 
-def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Validation):
+def run_model_rf(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Validation):
     global stagenet
     model = AdaBoostClassifier(n_estimators=N_ESTIMATORS, random_state=RANDOM_STATE, learning_rate=LR)
     #  Train the model
@@ -77,8 +77,8 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
     return weighted_f1, weighted_f1_mainnet
 
 
-def run_model_wrapper(data):
-    return run_model(*data)
+def run_model_wrapper_rf(data):
+    return run_model_rf(*data)
 
 
 def random_forest(X_train, X_test, y_train, y_test, N_ESTIMATORS, MAX_DEPTH, RANDOM_STATE, X_Validation, y_Validation, stagenet_val=True):
@@ -88,13 +88,14 @@ def random_forest(X_train, X_test, y_train, y_test, N_ESTIMATORS, MAX_DEPTH, RAN
     mainnet_f1 = []
 
     NUM_PROCESSES = cpu_count()
+    Num_Iterations = 5
 
-    if NUM_PROCESSES > 10:
-        NUM_PROCESSES = 10
+    if NUM_PROCESSES > Num_Iterations:
+        NUM_PROCESSES = Num_Iterations
 
     with Manager() as manager:
         with manager.Pool(processes=NUM_PROCESSES) as pool:
-            for returned_data in tqdm(pool.imap_unordered(func=run_model_wrapper, iterable=zip(repeat(X_train, 10), repeat(X_test, 10), repeat(y_train, 10), repeat(y_test, 10), list(range(10)), repeat(X_Validation, 10), repeat(y_Validation, 10))), desc="(Multiprocessing) Training RF", total=10, colour='blue'):
+            for returned_data in tqdm(pool.imap_unordered(func=run_model_wrapper_rf, iterable=zip(repeat(X_train, Num_Iterations), repeat(X_test, Num_Iterations), repeat(y_train, Num_Iterations), repeat(y_test, Num_Iterations), list(range(Num_Iterations)), repeat(X_Validation, Num_Iterations), repeat(y_Validation, Num_Iterations))), desc="(Multiprocessing) Training RF", total=Num_Iterations, colour='blue'):
                 weighted_f1, weighted_f1_mainnet = returned_data
                 out_of_sample_f1.append(weighted_f1)
                 mainnet_f1.append(weighted_f1_mainnet)

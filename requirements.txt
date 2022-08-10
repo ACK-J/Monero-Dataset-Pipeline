@@ -10,3 +10,4 @@ xgboost
 graphviz
 colorama
 psycopg2-binaray
+keras

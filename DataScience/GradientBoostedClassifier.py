@@ -112,12 +112,14 @@ def gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validatio
 
     NUM_PROCESSES = cpu_count()
 
-    if NUM_PROCESSES > 10:
-        NUM_PROCESSES = 10
+    Num_Iterations = 5
+
+    if NUM_PROCESSES > Num_Iterations:
+        NUM_PROCESSES = Num_Iterations
 
     with Manager() as manager:
         with manager.Pool(processes=NUM_PROCESSES) as pool:
-            for returned_data in tqdm(pool.imap_unordered(func=run_model_wrapper, iterable=zip(repeat(X_train,10), repeat(X_test,10), repeat(y_train,10), repeat(y_test,10), list(range(10)), repeat(X_Validation,10), repeat(y_Validation,10))), desc="(Multiprocessing) Training GBC", total=10, colour='blue'):
+            for returned_data in tqdm(pool.imap_unordered(func=run_model_wrapper, iterable=zip(repeat(X_train,Num_Iterations), repeat(X_test,Num_Iterations), repeat(y_train,Num_Iterations), repeat(y_test,Num_Iterations), list(range(Num_Iterations)), repeat(X_Validation,Num_Iterations), repeat(y_Validation,Num_Iterations))), desc="(Multiprocessing) Training GBC", total=Num_Iterations, colour='blue'):
                 weighted_f1, weighted_f1_mainnet = returned_data
                 out_of_sample_f1.append(weighted_f1)
                 mainnet_f1.append(weighted_f1_mainnet)
