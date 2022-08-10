@@ -1,5 +1,7 @@
 # Monero Dataset Pipeline
-A pipeline that automates the creation and transaction of monero wallets used to collect a dataset suitable for supervised learning applications. 
+A pipeline that automates the creation and transaction of monero wallets used to collect a dataset suitable for supervised learning applications. The source code and datasets are used to reproduce the results of:
+
+`Lord of the Rings: An Empirical Analysis of Monero's Ring Signature Resilience to Artificially Intelligent Attacks`
 
 # Installation
 ```
