@@ -68,18 +68,27 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 import pickle
 import json
 
+# Full dataset including labels
 with open("./Dataset_Files/dataset.json", "r") as fp:
     data = json.load(fp)
-    
+
+# -----------------------------------------------------
+
+# Dataset only with ML features
 with open("./Dataset_Files/X.pkl", "rb") as fp:
     X = pickle.load(fp)
-    
+
+# Associated labels
 with open("./Dataset_Files/y.pkl", "rb") as fp:
     y = pickle.load(fp)
     
+# -----------------------------------------------------
+
+# Undersampled version of X
 with open("./Dataset_Files/X_Undersampled.pkl", "rb") as fp:
     X_Undersampled = pickle.load(fp)
     
+# Undersampled version of y
 with open("./Dataset_Files/y_Undersampled.pkl", "rb") as fp:
     y_Undersampled = pickle.load(fp)
 ```
