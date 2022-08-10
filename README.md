@@ -1,5 +1,7 @@
 # Monero Dataset Pipeline
-A pipeline that automates the creation and transaction of monero wallets used to collect a dataset suitable for supervised learning applications. 
+A pipeline that automates the creation and transaction of monero wallets used to collect a dataset suitable for supervised learning applications. The source code and datasets are used to reproduce the results of:
+
+`Lord of the Rings: An Empirical Analysis of Monero's Ring Signature Resilience to Artificially Intelligent Attacks`
 
 # Installation
 ```
@@ -68,18 +70,27 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 import pickle
 import json
 
+# Full dataset including labels
 with open("./Dataset_Files/dataset.json", "r") as fp:
     data = json.load(fp)
-    
+
+# -----------------------------------------------------
+
+# Dataset only with ML features
 with open("./Dataset_Files/X.pkl", "rb") as fp:
     X = pickle.load(fp)
-    
+
+# Associated labels
 with open("./Dataset_Files/y.pkl", "rb") as fp:
     y = pickle.load(fp)
     
+# -----------------------------------------------------
+
+# Undersampled version of X
 with open("./Dataset_Files/X_Undersampled.pkl", "rb") as fp:
     X_Undersampled = pickle.load(fp)
     
+# Undersampled version of y
 with open("./Dataset_Files/y_Undersampled.pkl", "rb") as fp:
     y_Undersampled = pickle.load(fp)
 ```
@@ -101,7 +112,10 @@ with open("./Dataset_Files/y_Undersampled.pkl", "rb") as fp:
 # Problem Solving and Useful Commands
 ### If Collect.sh throws the error: `Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached`
 ```
+# Testnet
 /home/user/monero/external/db_drivers/liblmdb/mdb_stat -rr ~/.bitmonero/testnet/lmdb/
+# Stagenet
+/home/user/monero/external/db_drivers/liblmdb/mdb_stat -rr ~/.bitmonero/stagenet/lmdb/
 ```
 ### Check progress of collect.sh while its running
 ```
