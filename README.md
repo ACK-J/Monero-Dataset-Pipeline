@@ -101,7 +101,10 @@ with open("./Dataset_Files/y_Undersampled.pkl", "rb") as fp:
 # Problem Solving and Useful Commands
 ### If Collect.sh throws the error: `Failed to create a read transaction for the db: MDB_READERS_FULL: Environment maxreaders limit reached`
 ```
+# Testnet
 /home/user/monero/external/db_drivers/liblmdb/mdb_stat -rr ~/.bitmonero/testnet/lmdb/
+# Stagenet
+/home/user/monero/external/db_drivers/liblmdb/mdb_stat -rr ~/.bitmonero/stagenet/lmdb/
 ```
 ### Check progress of collect.sh while its running
 ```
