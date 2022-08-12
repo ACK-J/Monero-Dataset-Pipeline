@@ -64,7 +64,7 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
         sn.heatmap(cm, annot=True)
         plt.xlabel('Predicted')
         plt.ylabel('Truth')
-        plt.savefig("./models/GBC/stagenet/CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".png")
+        plt.savefig("./models/GBC/stagenet/CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1) + ".png")
     else:
         cm = confusion_matrix(y_test, y_pred)
         #  Heat map
@@ -72,7 +72,7 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
         sn.heatmap(cm, annot=True)
         plt.xlabel('Predicted')
         plt.ylabel('Truth')
-        plt.savefig("./models/GBC/testnet/CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".png")
+        plt.savefig("./models/GBC/testnet/CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1) + ".png")
 
     y_main_predict = model.predict(X_Validation)
     weighted_f1_mainnet = f1_score(y_Validation, y_main_predict, average='weighted')
@@ -86,7 +86,7 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
         sn.heatmap(cm, annot=True)
         plt.xlabel('Predicted')
         plt.ylabel('Truth')
-        plt.savefig("./models/GBC/stagenet/Main_CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".png")
+        plt.savefig("./models/GBC/stagenet/Main_CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1_mainnet) +  ".png")
     else:
         cm = confusion_matrix(y_Validation, y_main_predict)
         #  Heat map
@@ -94,7 +94,7 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
         sn.heatmap(cm, annot=True)
         plt.xlabel('Predicted')
         plt.ylabel('Truth')
-        plt.savefig("./models/GBC/testnet/Main_CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + ".png")
+        plt.savefig("./models/GBC/testnet/Main_CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1_mainnet) + ".png")
     return weighted_f1, weighted_f1_mainnet
 
 

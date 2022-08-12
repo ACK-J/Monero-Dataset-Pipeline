@@ -88,7 +88,7 @@ def Diff(li1, li2):
 
 
 def main():
-    # Preliminary Testnet Dataset
+    # Testnet Dataset
     testnet_X_train, testnet_X_test, testnet_y_train, testnet_y_test = load_data(0.2, "../TestnetDataset/X_Undersampled.pkl", "../TestnetDataset/y_Undersampled.pkl")
     testnet_X_val_mainnet, _, testnet_y_val_mainnet, _ = load_data(0, "../MainnetDatasetTestnet/X_Undersampled.pkl", "../MainnetDatasetTestnet/y_Undersampled.pkl")
 
@@ -98,6 +98,8 @@ def main():
     # Fill in any missing columns for the mainnet stagenet dataset
     missing_df_cols = Diff(X_test.columns.to_list(), X_val_mainnet.columns.to_list())
     X_val_mainnet = X_val_mainnet.reindex(columns=X_val_mainnet.columns.tolist() + missing_df_cols, fill_value=-1)
+    #  Make sure the columns are in the same order
+    X_val_mainnet = X_val_mainnet[X_train.columns]
 
     # print("STAGENET GBC TRAINING")
     # print(GradientBoostedClassifier.gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_val_mainnet, y_val_mainnet))
