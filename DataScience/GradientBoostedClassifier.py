@@ -8,6 +8,7 @@ from tqdm import tqdm
 from multiprocessing import cpu_count, Manager
 from sklearn.metrics import f1_score
 from itertools import repeat
+import numpy as np
 
 #  Colors
 GREEN = '\033[92m'
@@ -59,6 +60,7 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
 
     if stagenet:
         cm = confusion_matrix(y_test, y_pred)
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
         #  Heat map
         plt.figure(figsize=(10, 7))
         sn.heatmap(cm, annot=True)
@@ -67,6 +69,7 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
         plt.savefig("./models/GBC/stagenet/CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1) + ".png")
     else:
         cm = confusion_matrix(y_test, y_pred)
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
         #  Heat map
         plt.figure(figsize=(10, 7))
         sn.heatmap(cm, annot=True)
@@ -81,6 +84,7 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
 
     if stagenet:
         cm = confusion_matrix(y_Validation, y_main_predict)
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
         #  Heat map
         plt.figure(figsize=(10, 7))
         sn.heatmap(cm, annot=True)
@@ -89,6 +93,7 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
         plt.savefig("./models/GBC/stagenet/Main_CM_num_estimators_" + str(NUM_ESTIMATORS) + "_lr_" + str(LR) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1_mainnet) +  ".png")
     else:
         cm = confusion_matrix(y_Validation, y_main_predict)
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
         #  Heat map
         plt.figure(figsize=(10, 7))
         sn.heatmap(cm, annot=True)
@@ -112,7 +117,7 @@ def gradient_boosted(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validatio
 
     NUM_PROCESSES = cpu_count()
 
-    Num_Iterations = 5
+    Num_Iterations = 10
 
     if NUM_PROCESSES > Num_Iterations:
         NUM_PROCESSES = Num_Iterations

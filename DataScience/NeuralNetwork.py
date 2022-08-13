@@ -62,8 +62,8 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
     out_of_sample_f1 = []
     mainnet_f1 = []
 
-    EPOCHS = 30
-    BATCH_SIZE = 256
+    EPOCHS = 100
+    BATCH_SIZE = 512
 
     y_test_copy = y_test.copy()
     y_test = np.asarray(y_test)
@@ -89,20 +89,20 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
     scaler = StandardScaler().fit(X_Validation)
     X_Validation = scaler.transform(X_Validation)
 
-    for i in range(5):
+    for i in range(10):
         from keras_visualizer import visualizer
         model = Sequential()
         model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
-        model.add(Dense(32, activation='relu'))
+        #model.add(Dense(32, activation='relu'))
         model.add(Dense(64, activation='relu'))
-        model.add(Dense(128, activation='relu'))
+        #model.add(Dense(128, activation='relu'))
         model.add(Dropout(.1))
-        model.add(Dense(256, activation='relu'))
-        model.add(Dense(128, activation='relu'))
+        #model.add(Dense(256, activation='relu'))
+        #model.add(Dense(128, activation='relu'))
         model.add(Dense(64, activation='relu'))
-        model.add(Dropout(.3))
+        #model.add(Dropout(.3))
         model.add(Dense(32, activation='relu'))
-        model.add(Dropout(.2))
+        #model.add(Dropout(.2))
         model.add(Dense(11))
         model.add(BatchNormalization())
         model.add(Activation('softmax'))
@@ -110,20 +110,20 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
         # https://towardsdatascience.com/visualizing-keras-models-4d0063c8805e
         # visualizer(model, format='png', view=True)
 
-        class_weight = {0: 1.,
-                        1: 50.,
-                        2: 50.,
-                        3: 50.,
-                        4: 50.,
-                        5: 50.,
-                        6: 50.,
-                        7: 50.,
-                        8: 50.,
-                        9: 50.,
-                        10: 1.}
+        # class_weight = {0: 1.,
+        #                 1: 50.,
+        #                 2: 50.,
+        #                 3: 50.,
+        #                 4: 50.,
+        #                 5: 50.,
+        #                 6: 50.,
+        #                 7: 50.,
+        #                 8: 50.,
+        #                 9: 50.,
+        #                 10: 1.}
 
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=(X_Validation, y_val), class_weight=class_weight)
+        model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=(X_Validation, y_val))#, class_weight=class_weight)
         if stagenet:
             with open("./models/NN/stagenet/epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + ".pkl", "wb") as fp:
                 pickle.dump(model, fp)
@@ -171,6 +171,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
 
         if stagenet:
             cm = confusion_matrix(y_val_copy, y_main_predict)
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
             #  Heat map
             plt.figure(figsize=(10, 7))
             sn.heatmap(cm, annot=True)
@@ -179,6 +180,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
             plt.savefig("./models/NN/stagenet/MAIN_CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(weighted_f1_mainnet) + ".png")
         else:
             cm = confusion_matrix(y_val_copy, y_main_predict)
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
             #  Heat map
             plt.figure(figsize=(10, 7))
             sn.heatmap(cm, annot=True)
