@@ -142,7 +142,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
         print("NN Metrics ")
         y_pred = model.predict(X_test)
         y_pred = np.argmax(y_pred, axis=1).tolist()
-        weighted_f1 = f1_score(y_test_copy, y_pred, average='weighted')
+        weighted_f1 = f1_score(y_test_copy, y_pred, average='macro')
         print('Weighted F1-score: {:.2f}'.format(weighted_f1))
         out_of_sample_f1.append(weighted_f1)
 
@@ -165,7 +165,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
 
         y_main_predict = model.predict(X_Validation)
         y_main_predict = np.argmax(y_main_predict, axis=1).tolist()
-        weighted_f1_mainnet = f1_score(y_val_copy, y_main_predict, average='weighted')
+        weighted_f1_mainnet = f1_score(y_val_copy, y_main_predict, average='macro')
         print('Mainnet Weighted F1-score: {:.2f}'.format(weighted_f1_mainnet))
         mainnet_f1.append(weighted_f1_mainnet)
 

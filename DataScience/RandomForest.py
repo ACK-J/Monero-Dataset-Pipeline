@@ -50,8 +50,8 @@ def run_model_rf(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y
     # Metrics
     print("Random Forest Metrics ")
     y_pred = model.predict(X_test)
-    weighted_f1 = f1_score(y_test, y_pred, average='weighted')
-    print('Weighted F1-score: {:.2f}'.format(weighted_f1))
+    weighted_f1 = f1_score(y_test, y_pred, average='macro')
+    print('macro F1-score: {:.2f}'.format(weighted_f1))
     #out_of_sample_f1.append(weighted_f1)
 
     if stagenet:
@@ -74,8 +74,8 @@ def run_model_rf(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y
         plt.savefig("./models/RF/testnet/CM_num_estimators_" + str(N_ESTIMATORS) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1) + ".png")
 
     y_main_predict = model.predict(X_Validation)
-    weighted_f1_mainnet = f1_score(y_Validation, y_main_predict, average='weighted')
-    print('Mainnet Weighted F1-score: {:.2f}'.format(weighted_f1_mainnet))
+    weighted_f1_mainnet = f1_score(y_Validation, y_main_predict, average='macro')
+    print('Mainnet macro F1-score: {:.2f}'.format(weighted_f1_mainnet))
     #mainnet_f1.append(weighted_f1_mainnet)
 
     if stagenet:
