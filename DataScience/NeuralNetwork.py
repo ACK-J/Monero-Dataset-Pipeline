@@ -89,20 +89,20 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
     scaler = StandardScaler().fit(X_Validation)
     X_Validation = scaler.transform(X_Validation)
 
+    # fix off by one error
+    for i in range(len(y_test_copy)):
+        y_test_copy[i] = y_test_copy[i] - 1
+    for i in range(len(y_val_copy)):
+        y_val_copy[i] = y_val_copy[i] - 1
+
     for i in range(10):
         from keras_visualizer import visualizer
         model = Sequential()
         model.add(Dense(11, input_shape=(X_train.shape[1],), activation='relu'))
-        #model.add(Dense(32, activation='relu'))
         model.add(Dense(64, activation='relu'))
-        #model.add(Dense(128, activation='relu'))
         model.add(Dropout(.1))
-        #model.add(Dense(256, activation='relu'))
-        #model.add(Dense(128, activation='relu'))
         model.add(Dense(64, activation='relu'))
-        #model.add(Dropout(.3))
         model.add(Dense(32, activation='relu'))
-        #model.add(Dropout(.2))
         model.add(Dense(11))
         model.add(BatchNormalization())
         model.add(Activation('softmax'))
@@ -133,9 +133,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
         score = model.evaluate(X_test, y_test, verbose=1)
         print(score[1])
 
-        y_pred = list(model.predict(X_Validation).argmax(axis=1))
-        for i in range(len(y_pred)):
-            y_pred[i] = y_pred[i] + 1
+        # y_pred = list(model.predict(X_Validation).argmax(axis=1))
         #confusion_mtx(y_Validation, y_pred)
 
         # Metrics
@@ -145,9 +143,9 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
         weighted_f1 = f1_score(y_test_copy, y_pred, average='macro')
         print('Weighted F1-score: {:.2f}'.format(weighted_f1))
         out_of_sample_f1.append(weighted_f1)
-
         if stagenet:
             cm = confusion_matrix(y_test_copy, y_pred)
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
             #  Heat map
             plt.figure(figsize=(10, 7))
             sn.heatmap(cm, annot=True)
@@ -156,6 +154,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
             plt.savefig("./models/NN/stagenet/CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(weighted_f1) + ".png")
         else:
             cm = confusion_matrix(y_test_copy, y_pred)
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
             #  Heat map
             plt.figure(figsize=(10, 7))
             sn.heatmap(cm, annot=True)
