@@ -54,7 +54,7 @@ def run_model(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y_Va
     # Metrics
     print("GBC Metrics ")
     y_pred = model.predict(X_test)
-    weighted_f1 = f1_score(y_test, y_pred, average='macro')
+    weighted_f1 = f1_score(y_test, y_pred, average='micro')
     print('macro F1-score: {:.2f}'.format(weighted_f1))
     #out_of_sample_f1.append(weighted_f1)
 
