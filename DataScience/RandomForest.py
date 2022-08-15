@@ -50,9 +50,9 @@ def run_model_rf(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y
     # Metrics
     print("Random Forest Metrics ")
     y_pred = model.predict(X_test)
-    weighted_f1 = f1_score(y_test, y_pred, average='micro')
-    print('macro F1-score: {:.2f}'.format(weighted_f1))
-    #out_of_sample_f1.append(weighted_f1)
+    micro_f1 = f1_score(y_test, y_pred, average='samples')
+    print('avg F1-score: {:.2f}'.format(micro_f1))
+    #out_of_sample_f1.append(micro_f1)
 
     if stagenet:
         cm = confusion_matrix(y_test, y_pred)
@@ -62,7 +62,7 @@ def run_model_rf(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y
         sn.heatmap(cm, annot=True)
         plt.xlabel('Predicted')
         plt.ylabel('Truth')
-        plt.savefig("./models/RF/stagenet/CM_num_estimators_" + str(N_ESTIMATORS) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1) + ".png")
+        plt.savefig("./models/RF/stagenet/CM_num_estimators_" + str(N_ESTIMATORS) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(micro_f1) + ".png")
     else:
         cm = confusion_matrix(y_test, y_pred)
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
@@ -71,12 +71,12 @@ def run_model_rf(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y
         sn.heatmap(cm, annot=True)
         plt.xlabel('Predicted')
         plt.ylabel('Truth')
-        plt.savefig("./models/RF/testnet/CM_num_estimators_" + str(N_ESTIMATORS) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1) + ".png")
+        plt.savefig("./models/RF/testnet/CM_num_estimators_" + str(N_ESTIMATORS) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(micro_f1) + ".png")
 
     y_main_predict = model.predict(X_Validation)
-    weighted_f1_mainnet = f1_score(y_Validation, y_main_predict, average='macro')
-    print('Mainnet macro F1-score: {:.2f}'.format(weighted_f1_mainnet))
-    #mainnet_f1.append(weighted_f1_mainnet)
+    macro_f1_mainnet = f1_score(y_Validation, y_main_predict, average='macro')
+    print('Mainnet macro F1-score: {:.2f}'.format(macro_f1_mainnet))
+    #mainnet_f1.append(macro_f1_mainnet)
 
     if stagenet:
         cm = confusion_matrix(y_Validation, y_main_predict)
@@ -86,7 +86,7 @@ def run_model_rf(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y
         sn.heatmap(cm, annot=True)
         plt.xlabel('Predicted')
         plt.ylabel('Truth')
-        plt.savefig("./models/RF/stagenet/MAIN_CM_num_estimators_" + str(N_ESTIMATORS) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1_mainnet) + ".png")
+        plt.savefig("./models/RF/stagenet/MAIN_CM_num_estimators_" + str(N_ESTIMATORS) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(macro_f1_mainnet) + ".png")
     else:
         cm = confusion_matrix(y_Validation, y_main_predict)
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
@@ -95,8 +95,8 @@ def run_model_rf(X_train, X_test, y_train, y_test, RANDOM_STATE, X_Validation, y
         sn.heatmap(cm, annot=True)
         plt.xlabel('Predicted')
         plt.ylabel('Truth')
-        plt.savefig("./models/RF/testnet/MAIN_CM_num_estimators_" + str(N_ESTIMATORS) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(weighted_f1_mainnet) + ".png")
-    return weighted_f1, weighted_f1_mainnet
+        plt.savefig("./models/RF/testnet/MAIN_CM_num_estimators_" + str(N_ESTIMATORS) + "_seed_" + str(RANDOM_STATE) + "_accuracy_" + '{:.2f}'.format(macro_f1_mainnet) + ".png")
+    return micro_f1, macro_f1_mainnet
 
 
 def run_model_wrapper_rf(data):
@@ -118,9 +118,9 @@ def random_forest(X_train, X_test, y_train, y_test, N_ESTIMATORS, MAX_DEPTH, RAN
     with Manager() as manager:
         with manager.Pool(processes=NUM_PROCESSES) as pool:
             for returned_data in tqdm(pool.imap_unordered(func=run_model_wrapper_rf, iterable=zip(repeat(X_train, Num_Iterations), repeat(X_test, Num_Iterations), repeat(y_train, Num_Iterations), repeat(y_test, Num_Iterations), list(range(Num_Iterations)), repeat(X_Validation, Num_Iterations), repeat(y_Validation, Num_Iterations))), desc="(Multiprocessing) Training RF", total=Num_Iterations, colour='blue'):
-                weighted_f1, weighted_f1_mainnet = returned_data
+                weighted_f1, macro_f1_mainnet = returned_data
                 out_of_sample_f1.append(weighted_f1)
-                mainnet_f1.append(weighted_f1_mainnet)
+                mainnet_f1.append(macro_f1_mainnet)
 
     # Stats
     mean = sum(out_of_sample_f1) / len(out_of_sample_f1)

@@ -140,9 +140,9 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
         print("NN Metrics ")
         y_pred = model.predict(X_test)
         y_pred = np.argmax(y_pred, axis=1).tolist()
-        weighted_f1 = f1_score(y_test_copy, y_pred, average='micro')
-        print('Weighted F1-score: {:.2f}'.format(weighted_f1))
-        out_of_sample_f1.append(weighted_f1)
+        micro_f1 = f1_score(y_test_copy, y_pred, average='samples')
+        print('Avg F1-score: {:.2f}'.format(micro_f1))
+        out_of_sample_f1.append(micro_f1)
         if stagenet:
             cm = confusion_matrix(y_test_copy, y_pred)
             cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
@@ -151,7 +151,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
             sn.heatmap(cm, annot=True)
             plt.xlabel('Predicted')
             plt.ylabel('Truth')
-            plt.savefig("./models/NN/stagenet/CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(weighted_f1) + ".png")
+            plt.savefig("./models/NN/stagenet/CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(micro_f1) + ".png")
         else:
             cm = confusion_matrix(y_test_copy, y_pred)
             cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
@@ -160,13 +160,13 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
             sn.heatmap(cm, annot=True)
             plt.xlabel('Predicted')
             plt.ylabel('Truth')
-            plt.savefig("./models/NN/testnet/CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(weighted_f1) + ".png")
+            plt.savefig("./models/NN/testnet/CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(micro_f1) + ".png")
 
         y_main_predict = model.predict(X_Validation)
         y_main_predict = np.argmax(y_main_predict, axis=1).tolist()
-        weighted_f1_mainnet = f1_score(y_val_copy, y_main_predict, average='macro')
-        print('Mainnet Weighted F1-score: {:.2f}'.format(weighted_f1_mainnet))
-        mainnet_f1.append(weighted_f1_mainnet)
+        macro_f1_mainnet = f1_score(y_val_copy, y_main_predict, average='macro')
+        print('Mainnet Weighted F1-score: {:.2f}'.format(macro_f1_mainnet))
+        mainnet_f1.append(macro_f1_mainnet)
 
         if stagenet:
             cm = confusion_matrix(y_val_copy, y_main_predict)
@@ -176,7 +176,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
             sn.heatmap(cm, annot=True)
             plt.xlabel('Predicted')
             plt.ylabel('Truth')
-            plt.savefig("./models/NN/stagenet/MAIN_CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(weighted_f1_mainnet) + ".png")
+            plt.savefig("./models/NN/stagenet/MAIN_CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(macro_f1_mainnet) + ".png")
         else:
             cm = confusion_matrix(y_val_copy, y_main_predict)
             cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
@@ -185,7 +185,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
             sn.heatmap(cm, annot=True)
             plt.xlabel('Predicted')
             plt.ylabel('Truth')
-            plt.savefig("./models/NN/testnet/MAIN_CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(weighted_f1_mainnet) + ".png")
+            plt.savefig("./models/NN/testnet/MAIN_CM_epochs_" + str(EPOCHS) + "_batch_size_" + str(BATCH_SIZE) + "_i_" + str(i) + "_accuracy_" + str(macro_f1_mainnet) + ".png")
 
     # kfold = KFold(n_splits=10, shuffle=True)
     # results = cross_val_score(model, X_test, y_test, cv=kfold)
