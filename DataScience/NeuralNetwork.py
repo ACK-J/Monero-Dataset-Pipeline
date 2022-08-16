@@ -140,7 +140,7 @@ def MLP(X_train, X_test, y_train, y_test, X_Validation, y_Validation, stagenet=T
         print("NN Metrics ")
         y_pred = model.predict(X_test)
         y_pred = np.argmax(y_pred, axis=1).tolist()
-        micro_f1 = f1_score(y_test_copy, y_pred, average='samples')
+        micro_f1 = f1_score(y_test_copy, y_pred, average='weighted')
         print('Avg F1-score: {:.2f}'.format(micro_f1))
         out_of_sample_f1.append(micro_f1)
         if stagenet:
