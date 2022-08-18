@@ -63,6 +63,15 @@ chmod +x ./run.sh && chmod 777 -R Funding_Wallets/
 
 
 
+## Model Weights Download Link
+- Includes the training session used in the paper along with all trained models and confusion matricies. 
+
+- SHA-256 Hash: `d2e0247fc50248b442ca4c98ebb5f99fb4108e8ddf62e2bb70f5f6ab2cddb185`
+
+- Download Link: [https://drive.google.com/file/d/1fM3_ArGLVjVz6L2-WpxQqvV4KoF9P5b1/view?usp=sharing](https://drive.google.com/file/d/1fM3_ArGLVjVz6L2-WpxQqvV4KoF9P5b1/view?usp=sharing)
+
+
+
 
 
 ## How to load the dataset using Python and Pickle
