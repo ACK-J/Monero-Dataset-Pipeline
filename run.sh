@@ -1,20 +1,26 @@
 #!/bin/bash
-# This script will create pairs of wallets which will transact between eachother. Due to
-# monero's 20 minute lockout period, creating a large amount of simulated transactions is
-# difficult. This script automates the wallet creation, funding and will transact between
-# wallets infinitely. The only manual setup is to have a wallet with a large amount of testnet
-# coins within the root directory, and it must be named "FundingWallet". 
+# This script will create pairs of wallets which will transact between eachother.
+# This script automates the wallet creation, funding and will transact between them
+# in the background until the specified stop time. The only manual setup is to have a wallet with a
+# large amount of coins within ./Funding_Wallets/, and it must be named ${NETWORK^}-Funding.
 
 # Usage: chmod +x ./run.sh && ./run.sh
+# Dependencies: tmux, expect, monero-wallet-cli, curl, jq (I think that's everything...)
+
+
 
 # Global variables of anything that would need to be changed in this file
-NETWORK="stagenet"  # Case-sensitive (make all lowercase)
+NETWORK="stagenet"  # Case-sensitive, Make sure it is all lowercase (testnet, stagenet, mainnet)
 if [[ "$NETWORK" == "stagenet" ]];then PORT="38081"; else PORT="28081"; fi
-REMOTE_NODE="community.rino.io"
-FUNDING_DELAY="1"
-FUNDING_AMOUNT=".01"
-TERMINAL_TAB_DELAY="10"
-END_COLLECTION_EPOCH_DATE="1656637261"   # Must be in epoch time (July 1st)
+REMOTE_NODE="community.rino.io" # Remote node to send transactions to the network
+FUNDING_DELAY="1" # Time inbetween funding wallets ( If this value is too low your funding wallet could have issues with the 20 minute lock)
+FUNDING_AMOUNT=".01" # The amount to send to each wallet created
+TMUX_WINDOW_DELAY="10" # The delay inbetween launching a new wallet
+END_COLLECTION_EPOCH_DATE="1656637261"   # Must be in epoch time (July 1st) The time when collection should stop
+
+
+
+
 
 #############################################################################
 #            You shouldn't need to edit anything below this line            #
@@ -241,8 +247,8 @@ EOL
     echo -e '\033[34mSpawned new tmux window: \033[0m' "${walletAddr}"
     tmux new-window -t run-sh: "python3 ../../spawn.py ${walletName}"
     #  A delay of opening a new tab to not overload the server. Most wallets will have to scan the network for a while before transacting
-    echo -e '\033[34mSleeping for: \033[0m\t\t ' $TERMINAL_TAB_DELAY ' seconds'
-		sleep $TERMINAL_TAB_DELAY
+    echo -e '\033[34mSleeping for: \033[0m\t\t ' $TMUX_WINDOW_DELAY ' seconds'
+		sleep $TMUX_WINDOW_DELAY
 	done < <(find ./ -type f -name "*.txt" | sort -u)
 	cd - || exit # Reset the directory
 done < <(find ./Wallets -mindepth 1 -type d | sort -u) 

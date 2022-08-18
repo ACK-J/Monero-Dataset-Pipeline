@@ -21,9 +21,10 @@ from os import walk, getcwd, chdir, listdir, fsync, system, remove
 options.mode.chained_assignment = None  # default='warn'
 
 '''
-Description: 
+Description: The main processing file that will find all the exported csv files and 
+             convert them into a database suitable for machine learning.
 Usage: ./create_dataset.py < Wallets Directory Path >
-Date: 7/8/2022
+Date: 8/17/2022
 Author: ACK-J
 
 Warning: DO NOT run this processing with a remote node, there are a lot of blockchain lookups and it will be slow!
@@ -32,6 +33,8 @@ To run your own node and block explorer:
     monerod --stagenet                        https://github.com/monero-project/monero
     xmrblocks --stagenet --enable-json-api    https://github.com/moneroexamples/onion-monero-blockchain-explorer
     
+For the feature engineering to complete successfully, you will need to set up https://github.com/neptuneresearch/ring-membership-sql
+for the desired network of choice (stagenet, testnet, mainnet)
 '''
 
 ######################
@@ -45,11 +48,11 @@ API_URL = "http://127.0.0.1:8081/api"   # Local Monero Block Explorer
 NUM_RING_MEMBERS = 11                   # DL models depend on a discrete number of rings
 PREDICTING = False                      # If True, no undersampling will happen
 
-POSTGRES_SQL_HOST = "127.0.0.1"
-POSTGRES_SQL_PORT = "18333"
-POSTGRES_SQL_USERNAME = "xmrack"
-POSTGRES_SQL_PASSWORD = "xmrack"
-POSTGRES_SQL_DB_NAME = "xmrstagedb"
+POSTGRES_SQL_HOST = "127.0.0.1"         # The IP address of the PostgreSQL ring membership server
+POSTGRES_SQL_PORT = "18333"             # The port of the PostgreSQL server
+POSTGRES_SQL_USERNAME = "xmrack"        # The username of the PostgreSQL server
+POSTGRES_SQL_PASSWORD = "xmrack"        # The password of the PostgreSQL server
+POSTGRES_SQL_DB_NAME = "xmrstagedb"     # The name of the database
 
 ###################################################################################
 #     You shouldn't need to edit anything below this line unless things break     #
@@ -73,7 +76,7 @@ def get_xmr_tx(tx_hash):
 
 def enrich_data(tx_dict_item):
     """
-
+    The heavy lifting of the script that adds new features by querying the blockchain and the Postgres ring signature DB.
     :param tx_dict_item:
     :return:
     """
@@ -261,9 +264,9 @@ ORDER BY input_pos, input_mem_idx, height_B ASC
 
 def combine_files(Wallet_info):
     """
-
-    :param Wallet_info:
-    :return:
+    Combine the multiple csv files and extract the unique values from each
+    :param Wallet_info: A tuple of (Wallet_addr, Wallet_dir)
+    :return: A dictionary of transaction metadata
     """
     Wallet_addr = Wallet_info[0]
     Wallet_dir = Wallet_info[1]
@@ -371,9 +374,8 @@ def combine_files(Wallet_info):
 
 def discover_wallet_directories(dir_to_search):
     """
-
-    :param dir_to_search:
-    :return:
+    Discovers the csv files exported by collect.sh
+    :param dir_to_search: The directory to start the recursive search
     """
     # ERROR Checking if the directory is empty or not
     try:
@@ -450,10 +452,10 @@ def clean_transaction(transaction):
     necessarily useful for training a machine learning model. This
     information includes cryptographically random strings ( wallet
     addresses, and private keys ) as well as human-readable strings.
-    This function will also strip any "deanonymized" features and
+    This function will strip any "secret" features and
     return them in a separate dictionary to be added to the labels.
-    :param transaction: A dictionary of transaction information
-    :return: A dictionary of labels associated to the inputted transaction
+    :param transaction: A dictionary of transaction information, passed by reference
+    :return: private information within the transaction
     """
     private_info = {}
     del transaction['Tx_Version']
@@ -495,7 +497,8 @@ def clean_transaction(transaction):
 
 def create_feature_set(database):
     """
-
+    Converts the python dictionary into a Pandas dataframe and removes
+    any columns that would not be useful to a machine learning classifier
     :param database: Nested dictionary of Monero transaction metadata
     :return: A pandas dataframe of the input data and a list of labels
     """
@@ -553,20 +556,20 @@ def create_feature_set(database):
 
     #  Shuffle the data
     feature_set_df, labels = shuffle(feature_set_df, labels, random_state=69)
-    #  Reset the indexing after the shuffles
+    #  Reset the indexing after the shuffle
     feature_set_df.reset_index(drop=True, inplace=True)
     return feature_set_df, labels
 
 
 def undersample_processing(y, series, min_occurrences, occurrences, predicting):
     """
-
-    :param y:
-    :param series:
-    :param min_occurrences:
-    :param occurrences:
-    :param predicting:
-    :return:
+    The processing stage of the undersampling process.
+    :param y: The labels
+    :param series: A single row in the dataset
+    :param min_occurrences: The number of samples per class
+    :param occurrences: A dictionary that tracks the number of occurrences per class in the undersampled dataset
+    :param predicting: Boolean value, if true dont undersample
+    :return: new_X, new_y
     """
     new_y = []
     new_X = []
@@ -597,11 +600,12 @@ def undersample_processing(y, series, min_occurrences, occurrences, predicting):
 
 def undersample(X, y, predicting):
     """
-
-    :param X:
-    :param y:
-    :param predicting:
-    :return:
+    Undersample the dataset such that every class has the same number of occurrences
+    :param X: The data
+    :param y: The labels
+    :param predicting: Boolean value if predicting is true then do not undersample.
+                       For example, if you are predicting on mainnet samples.
+    :return: undersampled_X, undersampled_y
     """
     #  Flatten the ring signature labels into a list
     flattened_true_spend = []
@@ -736,9 +740,9 @@ def undersample(X, y, predicting):
 
 def write_dict_to_csv(data_dict):
     """
-
-    :param data_dict:
-    :return:
+    A custom function to convert the nested dictionary into a flattened CSV
+    since there was no python module available.
+    :param data_dict: The nested python dict
     """
     #  Keep track of all column names for the CSV
     column_names = []
@@ -795,11 +799,11 @@ def write_dict_to_csv(data_dict):
 
 def validate_data_integrity(X, y, undersampled=False):
     """
-
-    :param X:
-    :param y:
-    :param undersampled:
-    :return:
+    Validates the during the processing of the data, no samples have accidentally
+    changed positions from their associated record. This largely serves as a santity check.
+    :param X: The modified data that needs to be checked
+    :param y: The modified labels that needs to be checked
+    :param undersampled: A boolean switch if the sanity check is before or after undersampling
     """
     print(blue + "\nData Integrity Check" + reset)
     if undersampled:
@@ -907,9 +911,8 @@ def validate_data_integrity(X, y, undersampled=False):
 
 def delete_file(list_of_paths):
     """
-
-    :param list_of_paths:
-    :return:
+    A simple function to delete a given file
+    :param list_of_paths: Path to the file
     """
     for path in list_of_paths:
         if exists(path):
@@ -1043,7 +1046,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt as e:
         print("Error: User stopped the script's execution!")
         exit(1)
-    #  All other raised errors, print the stack trace
+    #  Any other raised errors, print the stack trace
     except Exception as e:
         import traceback
         print(e)

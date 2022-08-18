@@ -1,11 +1,15 @@
+from sys import argv
+from math import exp
 from numpy import random
 from time import sleep, time
-from math import exp
-from datetime import datetime, timedelta
-from subprocess import Popen, PIPE, TimeoutExpired
-from sys import argv
 from colorama import Fore, Style
 from os import getenv, getcwd, system
+from datetime import datetime, timedelta
+from subprocess import Popen, PIPE, TimeoutExpired
+
+"""
+Description: The script that each wallet runs to transact in the tmux windows.
+"""
 
 NETWORK = getenv('RUN_SH_NETWORK')
 END_COLLECTION_EPOCH_DATE = getenv('END_COLLECTION_EPOCH_DATE')
@@ -13,7 +17,7 @@ END_COLLECTION_EPOCH_DATE = getenv('END_COLLECTION_EPOCH_DATE')
 
 def runcommand(cmd):
     """
-
+    Function to make syscalls
     :param cmd:
     :return:
     """
