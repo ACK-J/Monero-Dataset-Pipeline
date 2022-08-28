@@ -7,7 +7,7 @@ A pipeline that automates the creation and transaction of monero wallets used to
 ```
 sudo apt update
 sudo apt install vim git jq expect tmux parallel python3 python3-tk bc curl python3-pip -y
-pip3 install numpy
+pip3 install -r requirements.txt
 cd ~ && wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2
 tar -xvf monero-linux-x64-v0.17.3.0.tar.bz2 && cd monero-x86_64-linux-gnu-v0.17.3.0 && sudo cp monero* /usr/bin/ && cd ..
 git clone git@github.com:ACK-J/Monero-Dataset-Pipeline.git && cd Monero-Dataset-Pipeline
